@@ -1,8 +1,10 @@
-"""Tests for register_model(), publish_version(), and ModelHandle."""
+"""Tests for register_model(), publish_version(), load_model(), and ModelHandle."""
 
 import base64
+import io
 import json
 import os
+import pickle
 import pytest
 import responses
 from unittest.mock import patch
@@ -286,3 +288,136 @@ class TestPublishVersion:
         # Verify the base64 encoding round-trips correctly
         decoded = base64.b64decode(body["artifact_data"])
         assert decoded == b"\x80\x04\x95\x00\x00\x00\x00"
+
+
+# ---------------------------------------------------------------------------
+# load_model — framework-specific deserialization
+# ---------------------------------------------------------------------------
+
+
+class TestLoadModelSklearn:
+    """load_model() deserializes sklearn models via pickle."""
+
+    def test_load_model_sklearn(self, client, mock_api, sklearn_model):
+        """Roundtrip: serialize sklearn model → mock API → load_model → usable estimator."""
+        model_bytes = pickle.dumps(sklearn_model)
+
+        # Mock resolve endpoint
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/resolve/my-clf",
+            json={"id": "model-sk-001", "framework": "sklearn"},
+            status=200,
+        )
+        # Mock artifact download
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/model-sk-001/artifact",
+            body=model_bytes,
+            status=200,
+            content_type="application/octet-stream",
+        )
+
+        loaded = client.load_model("my-clf")
+
+        assert type(loaded).__name__ == "LogisticRegression"
+        # Verify it has the same params as the original
+        assert loaded.max_iter == sklearn_model.max_iter
+
+
+class TestLoadModelPytorch:
+    """load_model() deserializes PyTorch models via torch.load."""
+
+    @pytest.mark.skipif(
+        not pytest.importorskip("torch", reason="torch required"),
+        reason="torch not available",
+    )
+    def test_load_model_pytorch(self, client, mock_api, pytorch_model):
+        """Roundtrip: serialize pytorch model → mock API → load_model → usable nn.Module."""
+        import torch
+
+        buf = io.BytesIO()
+        torch.save(pytorch_model, buf)
+        model_bytes = buf.getvalue()
+
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/resolve/my-net",
+            json={"id": "model-pt-001", "framework": "pytorch"},
+            status=200,
+        )
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/model-pt-001/artifact",
+            body=model_bytes,
+            status=200,
+            content_type="application/octet-stream",
+        )
+
+        loaded = client.load_model("my-net", device="cpu")
+
+        assert isinstance(loaded, torch.nn.Module)
+        # Verify forward pass works
+        x = torch.randn(1, 4)
+        out = loaded(x)
+        assert out.shape == (1, 2)
+
+
+class TestLoadModelTensorflow:
+    """load_model() deserializes TF/Keras models via keras.load_model."""
+
+    def test_load_model_tensorflow(self, client, mock_api, tf_model):
+        """Roundtrip: serialize keras model → mock API → load_model → usable model."""
+        import tempfile, os
+        keras = pytest.importorskip("keras")
+
+        # Serialize the Keras model to .keras bytes
+        tmpfile = tempfile.mktemp(suffix=".keras")
+        tf_model.save(tmpfile)
+        with open(tmpfile, "rb") as f:
+            model_bytes = f.read()
+        os.unlink(tmpfile)
+
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/resolve/my-keras",
+            json={"id": "model-tf-001", "framework": "tensorflow"},
+            status=200,
+        )
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/model-tf-001/artifact",
+            body=model_bytes,
+            status=200,
+            content_type="application/octet-stream",
+        )
+
+        loaded = client.load_model("my-keras")
+
+        assert loaded is not None
+        # Verify predict works
+        import numpy as np
+        out = loaded.predict(np.array([[1.0, 2.0, 3.0, 4.0]]), verbose=0)
+        assert out.shape == (1, 2)
+
+
+class TestLoadModelUnsupported:
+    """load_model() raises for unknown frameworks."""
+
+    def test_load_model_unsupported_framework(self, client, mock_api):
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/resolve/my-model",
+            json={"id": "model-unk-001", "framework": "julia"},
+            status=200,
+        )
+        mock_api.add(
+            responses.GET,
+            f"{TEST_API_URL}/sdk/models/model-unk-001/artifact",
+            body=b"some bytes",
+            status=200,
+            content_type="application/octet-stream",
+        )
+
+        with pytest.raises(ValueError, match="Unsupported framework"):
+            client.load_model("my-model")
