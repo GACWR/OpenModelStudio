@@ -6,7 +6,8 @@ import json
 import os
 import pytest
 import responses
-import pandas as pd
+
+pd = pytest.importorskip("pandas", reason="pandas not installed")
 
 from openmodelstudio.client import Client
 

@@ -124,26 +124,38 @@ class TestRegisterModelWithObject:
         reason="torch not available",
     )
     def test_register_model_with_pytorch_object(self, client, mock_api, pytorch_model):
-        """Auto-detects pytorch, serializes nn.Module, generates source with embedded blob.
-
-        Note: The pytorch_model fixture defines SimpleNet in a local scope,
-        which torch.save cannot pickle. We mock _serialize_model to return
-        dummy bytes so the rest of the registration flow can be tested.
-        """
+        """Auto-detects pytorch, serializes nn.Module, generates source with embedded blob."""
         mock_api.add(
             responses.POST,
             f"{TEST_API_URL}/sdk/register-model",
             json=REGISTER_RESPONSE,
             status=200,
         )
-        dummy_bytes = b"fake-pytorch-model-bytes"
-        with patch("openmodelstudio.client._serialize_model", return_value=dummy_bytes):
-            handle = client.register_model("pytorch-net", model=pytorch_model)
+        handle = client.register_model("pytorch-net", model=pytorch_model)
 
         body = json.loads(mock_api.calls[0].request.body)
         assert body["framework"] == "pytorch"
         assert "_MODEL_B64" in body["source_code"]
         assert "import torch" in body["source_code"]
+        assert "def train(ctx):" in body["source_code"]
+        assert "def infer(ctx):" in body["source_code"]
+        assert handle.model_id == REGISTER_RESPONSE["model_id"]
+
+    def test_register_model_with_tensorflow_object(self, client, mock_api, tf_model):
+        """Auto-detects tensorflow, serializes Keras model, generates source with embedded blob."""
+        mock_api.add(
+            responses.POST,
+            f"{TEST_API_URL}/sdk/register-model",
+            json=REGISTER_RESPONSE,
+            status=200,
+        )
+        handle = client.register_model("keras-net", model=tf_model)
+
+        body = json.loads(mock_api.calls[0].request.body)
+        assert body["framework"] == "tensorflow"
+        assert "_MODEL_B64" in body["source_code"]
+        assert "def train(ctx):" in body["source_code"]
+        assert "def infer(ctx):" in body["source_code"]
         assert handle.model_id == REGISTER_RESPONSE["model_id"]
 
 

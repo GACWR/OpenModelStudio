@@ -1,10 +1,11 @@
 """Tests for Client.create_features() and Client.load_features()."""
 
 import json
-import numpy as np
-import pandas as pd
 import pytest
 import responses
+
+np = pytest.importorskip("numpy", reason="numpy not installed")
+pd = pytest.importorskip("pandas", reason="pandas not installed")
 
 from openmodelstudio.client import Client
 
