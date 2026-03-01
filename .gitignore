@@ -1,0 +1,15 @@
+api/target/
+web/.next/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.logs/
+.env
+.env.*
+*.pem
+*.key
+sdk/python/dist/
+sdk/python/build/
+*.egg-info/

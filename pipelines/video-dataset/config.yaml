@@ -1,0 +1,38 @@
+pipeline:
+  fps: 24
+  resolution: [256, 256]
+  clip_length_min: 2.0
+  clip_length_max: 10.0
+  audio_sample_rate: 16000
+  
+ingest:
+  sources:
+    - type: local
+      path: ./raw_videos/
+    - type: s3
+      bucket: openmodelstudio-videos
+      prefix: raw/
+  
+segment:
+  method: frame_diff  # 'frame_diff' or 'scenedetect'
+  threshold: 30.0
+  min_scene_len: 48  # frames
+
+validate:
+  min_motion_score: 0.01
+  max_static_ratio: 0.9
+  require_audio: false
+  max_av_desync_ms: 500
+
+annotate:
+  method: placeholder  # 'vlm' for vision-language model, 'placeholder' for dummy
+  vlm_endpoint: null
+
+audio:
+  resample_rate: 16000
+  format: wav
+  tokenize_audio: true
+  
+export:
+  output_dir: ./dataset/
+  format: clips  # individual clip files + JSON metadata

@@ -1,0 +1,12 @@
+web/node_modules
+web/.next
+api/target
+model-runner/rust/target
+inspiration_repos
+.pytest_cache
+tests
+docs
+pipelines
+**/.DS_Store
+**/.env*
+*.git

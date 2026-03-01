@@ -1,0 +1,12 @@
+{
+  "name": "openmodelstudio-postgraphile",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "postgraphile": "^4.13.0",
+    "@graphile-contrib/pg-simplify-inflector": "^6.1.0"
+  }
+}

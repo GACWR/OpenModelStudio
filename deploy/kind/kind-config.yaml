@@ -1,0 +1,49 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Core services
+      - containerPort: 31000
+        hostPort: 31000
+        protocol: TCP
+      - containerPort: 31001
+        hostPort: 31001
+        protocol: TCP
+      - containerPort: 31002
+        hostPort: 31002
+        protocol: TCP
+      - containerPort: 31003
+        hostPort: 31003
+        protocol: TCP
+      # Workspace NodePorts (31100-31109, 10 concurrent workspaces)
+      - containerPort: 31100
+        hostPort: 31100
+        protocol: TCP
+      - containerPort: 31101
+        hostPort: 31101
+        protocol: TCP
+      - containerPort: 31102
+        hostPort: 31102
+        protocol: TCP
+      - containerPort: 31103
+        hostPort: 31103
+        protocol: TCP
+      - containerPort: 31104
+        hostPort: 31104
+        protocol: TCP
+      - containerPort: 31105
+        hostPort: 31105
+        protocol: TCP
+      - containerPort: 31106
+        hostPort: 31106
+        protocol: TCP
+      - containerPort: 31107
+        hostPort: 31107
+        protocol: TCP
+      - containerPort: 31108
+        hostPort: 31108
+        protocol: TCP
+      - containerPort: 31109
+        hostPort: 31109
+        protocol: TCP

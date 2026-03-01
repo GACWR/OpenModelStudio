@@ -1,0 +1,12 @@
+FROM rust:slim-bookworm
+RUN apt-get update && apt-get install -y \
+    pkg-config libssl-dev curl unzip cmake g++ && rm -rf /var/lib/apt/lists/*
+ENV LIBTORCH_USE_PYTORCH=1
+RUN pip3 install torch --break-system-packages 2>/dev/null || true
+# Install libtorch C++ distribution
+RUN curl -sL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.1.0%2Bcpu.zip -o /tmp/libtorch.zip \
+    && unzip /tmp/libtorch.zip -d /opt && rm /tmp/libtorch.zip
+ENV LIBTORCH=/opt/libtorch
+ENV LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH
+WORKDIR /workspace
+CMD ["bash"]

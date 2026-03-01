@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: openmodelstudio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: openmodelstudio-api
+      containers:
+        - name: api
+          image: openmodelstudio/api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: openmodelstudio-config
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openmodelstudio-secrets
+                  key: JWT_SECRET
+            - name: RUST_LOG
+              valueFrom:
+                configMapKeyRef:
+                  name: openmodelstudio-config
+                  key: RUST_LOG
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: models
+              mountPath: /data/models
+            - name: datasets
+              mountPath: /data/datasets
+            - name: artifacts
+              mountPath: /data/artifacts
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: models-pvc
+        - name: datasets
+          persistentVolumeClaim:
+            claimName: datasets-pvc
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: artifacts-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: openmodelstudio
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 8080
+      targetPort: 8080

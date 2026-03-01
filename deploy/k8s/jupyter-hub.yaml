@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter-hub
+  namespace: openmodelstudio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter-hub
+  template:
+    metadata:
+      labels:
+        app: jupyter-hub
+    spec:
+      serviceAccountName: openmodelstudio-api
+      containers:
+        - name: jupyter-hub
+          image: jupyterhub/jupyterhub:4
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: CONFIGPROXY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openmodelstudio-secrets
+                  key: API_SECRET_KEY
+          readinessProbe:
+            httpGet:
+              path: /hub/health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-hub
+  namespace: openmodelstudio
+spec:
+  selector:
+    app: jupyter-hub
+  ports:
+    - port: 8000
+      targetPort: 8000

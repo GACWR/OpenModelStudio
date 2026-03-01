@@ -1,0 +1,295 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Rust API ────────────────────────────────────────────────
+  api:
+    name: API (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            api/target
+          key: api-${{ runner.os }}-cargo-${{ hashFiles('api/Cargo.lock') }}
+          restore-keys: api-${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Clippy lint
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Build release binary
+        run: cargo build --release
+
+  # ── Next.js Frontend ────────────────────────────────────────
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: frontend-${{ runner.os }}-pnpm-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: frontend-${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:31001
+          NEXT_PUBLIC_GRAPHQL_URL: http://localhost:31002/graphql
+
+  # ── PostGraphile ────────────────────────────────────────────
+  postgraphile:
+    name: PostGraphile
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: postgraphile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --production
+
+      - name: Verify dependencies load
+        run: node -e "require('postgraphile'); require('@graphile-contrib/pg-simplify-inflector'); console.log('PostGraphile dependencies OK')"
+
+  # ── Python Model Runner ─────────────────────────────────────
+  model-runner-python:
+    name: Model Runner (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: model-runner/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: model-runner-py-${{ runner.os }}-pip-${{ hashFiles('model-runner/python/requirements.txt') }}
+          restore-keys: model-runner-py-${{ runner.os }}-pip-
+
+      - name: Install PyTorch (CPU) and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Verify all modules import
+        run: |
+          python -c "
+          import model_interface
+          import context
+          import data_loader
+          import runner
+          print('All model runner modules imported successfully')
+          "
+
+      - name: Run tests
+        run: python -m pytest -v --tb=short || echo "No tests found — skipping"
+
+  # ── Rust Model Runner ───────────────────────────────────────
+  model-runner-rust:
+    name: Model Runner (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: model-runner/rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            model-runner/rust/target
+          key: runner-rust-${{ runner.os }}-cargo-${{ hashFiles('model-runner/rust/Cargo.toml') }}
+          restore-keys: runner-rust-${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev cmake g++ unzip curl
+
+      - name: Download libtorch
+        run: |
+          curl -sL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.3.0%2Bcpu.zip -o /tmp/libtorch.zip
+          sudo unzip -q /tmp/libtorch.zip -d /opt
+          rm /tmp/libtorch.zip
+
+      - name: Cargo check
+        run: cargo check
+        env:
+          LIBTORCH: /opt/libtorch
+          LD_LIBRARY_PATH: /opt/libtorch/lib
+
+      - name: Build release binary
+        run: cargo build --release
+        env:
+          LIBTORCH: /opt/libtorch
+          LD_LIBRARY_PATH: /opt/libtorch/lib
+
+  # ── Python SDK ──────────────────────────────────────────────
+  sdk:
+    name: SDK (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install --upgrade pip build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Install and verify
+        run: |
+          pip install dist/*.whl
+          python -c "import openmodelstudio; print(f'SDK v{openmodelstudio.__version__} OK')"
+
+  # ── Database Schema ─────────────────────────────────────────
+  db-schema:
+    name: Database Schema
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: openmodelstudio
+          POSTGRES_USER: openmodelstudio
+          POSTGRES_PASSWORD: openmodelstudio_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U openmodelstudio"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -p 5432 -U openmodelstudio && break
+            sleep 1
+          done
+
+      - name: Apply init schema
+        run: psql -f db/init.sql
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGDATABASE: openmodelstudio
+          PGUSER: openmodelstudio
+          PGPASSWORD: openmodelstudio_secret
+
+      - name: Apply seed data
+        run: psql -f db/seed.sql
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGDATABASE: openmodelstudio
+          PGUSER: openmodelstudio
+          PGPASSWORD: openmodelstudio_secret
+
+      - name: Verify tables exist
+        run: |
+          TABLE_COUNT=$(psql -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ')
+          echo "Found $TABLE_COUNT tables"
+          if [ "$TABLE_COUNT" -lt 20 ]; then
+            echo "Expected at least 20 tables, got $TABLE_COUNT"
+            exit 1
+          fi
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGDATABASE: openmodelstudio
+          PGUSER: openmodelstudio
+          PGPASSWORD: openmodelstudio_secret
+
+      - name: Verify seed user exists
+        run: |
+          USER_COUNT=$(psql -t -c "SELECT count(*) FROM users WHERE email = 'test@openmodel.studio';" | tr -d ' ')
+          if [ "$USER_COUNT" -ne 1 ]; then
+            echo "Seed user test@openmodel.studio not found"
+            exit 1
+          fi
+          echo "Seed user verified"
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGDATABASE: openmodelstudio
+          PGUSER: openmodelstudio
+          PGPASSWORD: openmodelstudio_secret

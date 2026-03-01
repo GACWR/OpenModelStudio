@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgraphile
+  namespace: openmodelstudio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgraphile
+  template:
+    metadata:
+      labels:
+        app: postgraphile
+    spec:
+      containers:
+        - name: postgraphile
+          image: openmodelstudio/postgraphile:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5433
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: openmodelstudio-config
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: openmodelstudio-secrets
+                  key: JWT_SECRET
+          readinessProbe:
+            httpGet:
+              path: /graphiql
+              port: 5433
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgraphile
+  namespace: openmodelstudio
+spec:
+  selector:
+    app: postgraphile
+  ports:
+    - port: 5433
+      targetPort: 5433

@@ -1,0 +1,33 @@
+FROM jupyter/scipy-notebook:latest
+
+USER root
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential git curl libpq-dev && rm -rf /var/lib/apt/lists/*
+
+# Install OpenModelStudio SDK
+COPY sdk/python/ /opt/openmodelstudio-sdk/
+RUN pip install --no-cache-dir /opt/openmodelstudio-sdk/
+
+# Install ML frameworks (CPU-only to keep image size reasonable)
+RUN pip install --no-cache-dir \
+    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir \
+    "scikit-learn>=1.6" matplotlib seaborn \
+    transformers datasets accelerate \
+    boto3 psycopg2-binary \
+    tensorflow keras
+
+# Set JupyterLab dark theme as default
+RUN mkdir -p /opt/conda/share/jupyter/lab/settings && \
+    echo '{ "@jupyterlab/apputils-extension:themes": { "theme": "JupyterLab Dark" } }' \
+    > /opt/conda/share/jupyter/lab/settings/overrides.json
+
+# Create workspace directory and copy welcome notebook
+RUN mkdir -p /workspace/models && chown -R ${NB_UID}:${NB_GID} /workspace
+COPY workspace/welcome.ipynb /workspace/welcome.ipynb
+RUN chown ${NB_UID}:${NB_GID} /workspace/welcome.ipynb
+
+USER ${NB_UID}
+WORKDIR /workspace

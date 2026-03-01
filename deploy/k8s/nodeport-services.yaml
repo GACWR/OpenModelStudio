@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-nodeport
+  namespace: openmodelstudio
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 31000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-nodeport
+  namespace: openmodelstudio
+spec:
+  type: NodePort
+  selector:
+    app: api
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 31001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgraphile-nodeport
+  namespace: openmodelstudio
+spec:
+  type: NodePort
+  selector:
+    app: postgraphile
+  ports:
+    - port: 5433
+      targetPort: 5433
+      nodePort: 31002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-hub-nodeport
+  namespace: openmodelstudio
+spec:
+  type: NodePort
+  selector:
+    app: jupyter-hub
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 31003

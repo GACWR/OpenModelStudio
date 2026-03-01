@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openmodelstudio-config
+  namespace: openmodelstudio
+data:
+  POSTGRES_DB: "openmodelstudio"
+  POSTGRES_USER: "openmodelstudio"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  DATABASE_URL: "postgres://openmodelstudio:openmodelstudio_secret@postgres:5432/openmodelstudio"
+  API_URL: "http://api:8080"
+  GRAPHQL_URL: "http://postgraphile:5433/graphql"
+  FRONTEND_URL: "http://frontend:3000"
+  RUST_LOG: "info"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: openmodelstudio
+data:
+  init.sql: |
+    -- This will be populated from db/init.sql during build
+    -- For now, include inline or mount from file
