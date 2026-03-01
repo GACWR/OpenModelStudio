@@ -9,7 +9,7 @@
         k8s-forward k8s-forward-db k8s-forward-api k8s-forward-gql k8s-forward-jupyter \
         build build-api build-frontend build-postgraphile build-model-runner-python build-workspace build-model-runner-rust build-all-images \
         dev dev-api dev-frontend dev-db dev-stop \
-        test test-api test-frontend test-e2e test-pipelines test-all \
+        test test-api test-frontend test-sdk test-sdk-cov test-sdk-frameworks test-sdk-unit test-e2e test-pipelines test-all \
         lint lint-api lint-frontend \
         db-init db-seed db-migrate db-reset reset-db \
         pipeline-run pipeline-test \
@@ -435,9 +435,9 @@ db-reset: db-init db-seed ## Reset local database (init + seed)
 #  Testing
 # =====================================================================
 
-test: test-api test-frontend ## Run API + frontend tests
+test: test-api test-frontend test-sdk ## Run API + frontend + SDK tests
 
-test-all: test-api test-frontend test-e2e test-pipelines ## Run ALL tests (unit + e2e + pipelines)
+test-all: test-api test-frontend test-sdk test-e2e test-pipelines ## Run ALL tests (unit + e2e + pipelines)
 
 test-api: ## Run Rust API tests
 	@echo "$(CYAN)Running API tests...$(RESET)"
@@ -468,6 +468,27 @@ test-pipelines: ## Run pipeline tests
 			cd $(ROOT_DIR); \
 		fi; \
 	done
+
+PYTHON_TEST_DIR := $(TEST_DIR)/python
+
+test-sdk: ## Run Python SDK & model runner tests
+	@echo "$(CYAN)Running Python SDK & model runner tests...$(RESET)"
+	cd $(PYTHON_TEST_DIR) && python3 -m pytest -v --tb=short -x
+
+test-sdk-cov: ## Run Python tests with coverage report
+	@echo "$(CYAN)Running Python tests with coverage...$(RESET)"
+	cd $(PYTHON_TEST_DIR) && python3 -m pytest -v --tb=short \
+		--cov=$(ROOT_DIR)/sdk/python/openmodelstudio \
+		--cov=$(ROOT_DIR)/model-runner/python \
+		--cov-report=term-missing
+
+test-sdk-frameworks: ## Run only framework integration tests (sklearn, pytorch, tf)
+	@echo "$(CYAN)Running framework integration tests...$(RESET)"
+	cd $(PYTHON_TEST_DIR) && python3 -m pytest frameworks/ -v --tb=short
+
+test-sdk-unit: ## Run only SDK unit tests (fast, no ML deps)
+	@echo "$(CYAN)Running SDK unit tests...$(RESET)"
+	cd $(PYTHON_TEST_DIR) && python3 -m pytest sdk/ -v --tb=short
 
 
 # =====================================================================

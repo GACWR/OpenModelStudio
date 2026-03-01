@@ -1,0 +1,169 @@
+name: Python SDK & Model Runner Tests
+
+on:
+  push:
+    branches: [main, "dev/**"]
+    paths:
+      - "sdk/python/**"
+      - "model-runner/python/**"
+      - "tests/python/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "sdk/python/**"
+      - "model-runner/python/**"
+      - "tests/python/**"
+  workflow_dispatch:
+
+concurrency:
+  group: python-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sdk-unit-tests:
+    name: SDK Unit Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: sdk-test-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('tests/python/requirements-test.txt') }}
+          restore-keys: sdk-test-${{ runner.os }}-py${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-cov pytest-mock pytest-timeout responses
+          pip install ./sdk/python
+
+      - name: Run SDK unit tests
+        run: |
+          cd tests/python
+          python -m pytest sdk/ -v --tb=short --junitxml=../../test-results/sdk-unit.xml
+        timeout-minutes: 5
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-unit-results-py${{ matrix.python-version }}
+          path: test-results/sdk-unit.xml
+
+  framework-tests:
+    name: Framework Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: framework-test-${{ runner.os }}-${{ hashFiles('tests/python/requirements-test.txt') }}
+          restore-keys: framework-test-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r tests/python/requirements-test.txt
+          pip install ./sdk/python
+
+      - name: Run framework integration tests
+        run: |
+          cd tests/python
+          python -m pytest frameworks/ -v --tb=short --junitxml=../../test-results/framework.xml
+        timeout-minutes: 10
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: framework-results
+          path: test-results/framework.xml
+
+  model-runner-tests:
+    name: Model Runner Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: runner-test-${{ runner.os }}-${{ hashFiles('tests/python/requirements-test.txt') }}
+          restore-keys: runner-test-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r tests/python/requirements-test.txt
+
+      - name: Run model runner tests
+        run: |
+          cd tests/python
+          PYTHONPATH=${{ github.workspace }}/model-runner/python:$PYTHONPATH \
+          python -m pytest model_runner/ -v --tb=short --junitxml=../../test-results/runner.xml
+        timeout-minutes: 5
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-results
+          path: test-results/runner.xml
+
+  integration-tests:
+    name: Integration (E2E Flow) Tests
+    runs-on: ubuntu-latest
+    needs: [sdk-unit-tests, framework-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r tests/python/requirements-test.txt
+          pip install ./sdk/python
+
+      - name: Run integration tests
+        run: |
+          cd tests/python
+          python -m pytest integration/ -v --tb=short --junitxml=../../test-results/integration.xml
+        timeout-minutes: 10
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-results
+          path: test-results/integration.xml
