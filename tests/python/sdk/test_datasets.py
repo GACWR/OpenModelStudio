@@ -143,6 +143,7 @@ class TestCreateDatasetFromDataFrame:
 
     def test_create_dataset_from_dataframe_parquet(self, client, mock_api):
         """DataFrame with format='parquet' serializes to parquet bytes."""
+        pytest.importorskip("pyarrow", reason="pyarrow required for parquet support")
         df = pd.DataFrame({"x": [10, 20], "y": [30, 40]})
         mock_api.add(
             responses.POST,
