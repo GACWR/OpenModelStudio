@@ -5,6 +5,7 @@ use argon2::{
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::models::user::UserRole;
@@ -109,4 +110,22 @@ pub fn validate_token(
         &Validation::default(),
     )?;
     Ok(data.claims)
+}
+
+/// SHA-256 hash of the API key for secure storage and lookup (recommended).
+/// New keys use this; lookup tries this first.
+pub fn compute_api_key_hash(raw: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+/// Legacy FNV-1a hash; only for backwards-compat lookup of keys created before SHA-256 was introduced.
+pub fn compute_api_key_hash_legacy(raw: &str) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in raw.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{:016x}", h)
 }
