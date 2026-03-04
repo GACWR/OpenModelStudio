@@ -1,0 +1,21 @@
+date,product,amount,region
+2024-01-03,Widget A,1200.50,North
+2024-01-07,Widget B,850.00,South
+2024-01-10,Gadget X,3400.75,East
+2024-01-15,Widget A,970.00,West
+2024-01-18,Gadget Y,2100.00,North
+2024-01-22,Widget B,1350.25,East
+2024-01-25,Gadget X,2800.00,South
+2024-02-01,Widget A,1500.00,West
+2024-02-05,Gadget Y,1900.50,North
+2024-02-08,Widget B,760.00,East
+2024-02-12,Gadget X,3100.00,South
+2024-02-16,Widget A,1050.75,West
+2024-02-19,Gadget Y,2450.00,North
+2024-02-23,Widget B,890.00,East
+2024-03-01,Gadget X,3750.00,South
+2024-03-05,Widget A,1300.00,West
+2024-03-09,Gadget Y,2200.25,North
+2024-03-13,Widget B,1100.00,East
+2024-03-17,Gadget X,2950.50,South
+2024-03-21,Widget A,1450.00,West

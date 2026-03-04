@@ -310,6 +310,10 @@ Run `make help` to see all available targets. Key ones:
 | [Dataset Guide](docs/DATASET-GUIDE.md) | Preparing and uploading datasets |
 | [Deployment](docs/DEPLOYMENT.md) | Production deployment guide |
 | [LLM Integration](docs/LLM-INTEGRATION.md) | LLM assistant architecture and extending |
+| [API for agents & automation](docs/API-FOR-AGENTS.md) | Same REST API for OpenClaw, CLI, and any coding agent; API key auth |
+| [OpenClaw Integration](docs/OPENCLAW-INTEGRATION.md) | Drive OpenModelStudio from OpenClaw AI agents (Telegram, Discord, etc.) |
+| [OpenClaw & Claude step-by-step](docs/OPENCLAW-AND-CLAUDE.md) | Follow-along guide: OpenClaw and Claude Code setup and usage |
+| [OpenClaw Quickstart & Testing](docs/OPENCLAW-QUICKSTART.md) | Full flow, config, API key, and test checklist |
 | [Research Models](docs/RESEARCH_MODELS.md) | Research architectures: HARPA, Genie, JEPA |
 | [Contributing](docs/CONTRIBUTING.md) | How to contribute |
 

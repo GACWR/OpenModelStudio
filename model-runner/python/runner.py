@@ -33,20 +33,21 @@ def get_env(name, required=False, default=None):
 
 
 def fetch_source_code(conn, model_id):
-    """Fetch model source code from DB. Try model_versions first, fallback to models."""
+    """Fetch model source code from DB. models.source_code holds the current version;
+    model_versions holds archived prior versions."""
     with conn.cursor() as cur:
-        # Try latest version
+        # Current version lives in models table
+        cur.execute("SELECT source_code FROM models WHERE id = %s", (model_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return row[0]
+
+        # Fallback: latest archived version
         cur.execute(
             "SELECT source_code FROM model_versions WHERE model_id = %s "
             "ORDER BY version DESC LIMIT 1",
             (model_id,),
         )
-        row = cur.fetchone()
-        if row and row[0]:
-            return row[0]
-
-        # Fallback to models table
-        cur.execute("SELECT source_code FROM models WHERE id = %s", (model_id,))
         row = cur.fetchone()
         if row and row[0]:
             return row[0]

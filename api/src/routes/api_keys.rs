@@ -4,6 +4,7 @@ use axum::{
 };
 use uuid::Uuid;
 
+use crate::auth::compute_api_key_hash;
 use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::extra::{ApiKey, ApiKeyPublic};
@@ -55,15 +56,7 @@ pub async fn create(
     let id = Uuid::new_v4();
     let raw_key = format!("oms_{}", Uuid::new_v4().to_string().replace('-', ""));
     let prefix = format!("{}...", &raw_key[..12]);
-    // Simple hash for storage — not cryptographic, but sufficient for API key lookup
-    let key_hash = format!("{:016x}", {
-        let mut h: u64 = 0xcbf29ce484222325;
-        for b in raw_key.as_bytes() {
-            h ^= *b as u64;
-            h = h.wrapping_mul(0x100000001b3);
-        }
-        h
-    });
+    let key_hash = compute_api_key_hash(&raw_key);
 
     sqlx::query(
         "INSERT INTO api_keys (id, user_id, name, key_hash, prefix, created_at)
