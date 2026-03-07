@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +27,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -67,17 +69,17 @@ const sections = [
     ],
   },
   {
-    label: "DEPLOY",
-    items: [
-      { name: "Model APIs", href: "/inference", icon: Cloud },
-      { name: "Monitoring", href: "/monitoring", icon: Activity },
-    ],
-  },
-  {
     label: "ANALYZE",
     items: [
       { name: "Visualizations", href: "/visualizations", icon: BarChart3 },
       { name: "Dashboards", href: "/dashboards", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "DEPLOY",
+    items: [
+      { name: "Model APIs", href: "/inference", icon: Cloud },
+      { name: "Monitoring", href: "/monitoring", icon: Activity },
     ],
   },
   {
@@ -95,8 +97,14 @@ export function Sidebar() {
   const { collapsed, toggle } = useSidebar();
   const pathname = usePathname();
   const { user } = useAuth();
+  // All sections expanded by default
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   const isAdmin = user?.role === "admin";
+
+  const toggleSection = (label: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
 
   return (
     <motion.aside
@@ -128,66 +136,86 @@ export function Sidebar() {
       <ScrollArea className="flex-1 px-3 py-4">
         {sections.map((section) => {
           if (section.admin && !isAdmin) return null;
+          const isSectionCollapsed = collapsedSections[section.label] ?? false;
           return (
-            <div key={section.label} className="mb-6">
+            <div key={section.label} className="mb-3">
               <AnimatePresence>
                 {!collapsed && (
-                  <motion.p
+                  <motion.button
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70"
+                    onClick={() => toggleSection(section.label)}
+                    className="mb-1 flex w-full items-center justify-between px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 hover:text-muted-foreground transition-colors rounded"
                   >
                     {section.label}
-                  </motion.p>
+                    <motion.span
+                      animate={{ rotate: isSectionCollapsed ? -90 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </motion.span>
+                  </motion.button>
                 )}
               </AnimatePresence>
-              {section.items.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname.startsWith(item.href));
-                const Icon = item.icon;
-                const link = (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                      active
-                        ? "bg-white/10 text-white sidebar-active-glow"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )}
+              <AnimatePresence initial={false}>
+                {(!isSectionCollapsed || collapsed) && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    style={{ overflow: "hidden" }}
                   >
-                    <Icon
-                      className={cn(
-                        "h-4.5 w-4.5 shrink-0 transition-colors",
-                        active ? "text-white" : "text-muted-foreground/70 group-hover:text-muted-foreground"
-                      )}
-                    />
-                    <AnimatePresence>
-                      {!collapsed && (
-                        <motion.span
-                          initial={{ opacity: 0, x: -5 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -5 }}
+                    {section.items.map((item) => {
+                      const active =
+                        pathname === item.href ||
+                        (item.href !== "/" && pathname.startsWith(item.href));
+                      const Icon = item.icon;
+                      const link = (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                            active
+                              ? "bg-white/10 text-white sidebar-active-glow"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
                         >
-                          {item.name}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </Link>
-                );
+                          <Icon
+                            className={cn(
+                              "h-4.5 w-4.5 shrink-0 transition-colors",
+                              active ? "text-white" : "text-muted-foreground/70 group-hover:text-muted-foreground"
+                            )}
+                          />
+                          <AnimatePresence>
+                            {!collapsed && (
+                              <motion.span
+                                initial={{ opacity: 0, x: -5 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -5 }}
+                              >
+                                {item.name}
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
+                        </Link>
+                      );
 
-                if (collapsed) {
-                  return (
-                    <Tooltip key={item.href} delayDuration={0}>
-                      <TooltipTrigger asChild>{link}</TooltipTrigger>
-                      <TooltipContent side="right">{item.name}</TooltipContent>
-                    </Tooltip>
-                  );
-                }
-                return link;
-              })}
+                      if (collapsed) {
+                        return (
+                          <Tooltip key={item.href} delayDuration={0}>
+                            <TooltipTrigger asChild>{link}</TooltipTrigger>
+                            <TooltipContent side="right">{item.name}</TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+                      return link;
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

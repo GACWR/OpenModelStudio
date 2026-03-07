@@ -27,8 +27,6 @@ export function VizRenderer({
   autoResize = true,
 }: VizRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // ── SVG ──
   if (outputType === "svg" && renderedOutput) {
@@ -139,15 +137,23 @@ function PlotlyRenderer({
     if (!Plotly) return;
     try {
       const parsed = typeof spec === "string" ? JSON.parse(spec) : spec;
-      const data = parsed.data || [];
+      const userLayout = parsed.layout || {};
+      // Deep-merge: preserve user's margin, font, yaxis2, etc.
       const layout = {
-        ...(parsed.layout || {}),
-        paper_bgcolor: "rgba(0,0,0,0)",
-        plot_bgcolor: "rgba(0,0,0,0)",
-        font: { color: "rgba(255,255,255,0.7)" },
-        margin: { l: 50, r: 20, t: 40, b: 40 },
+        ...userLayout,
+        paper_bgcolor: userLayout.paper_bgcolor || "rgba(0,0,0,0)",
+        plot_bgcolor: userLayout.plot_bgcolor || "rgba(0,0,0,0)",
+        font: { color: "rgba(255,255,255,0.7)", ...(userLayout.font || {}) },
+        margin: {
+          l: 50,
+          r: userLayout.yaxis2 ? 60 : 20,
+          t: 40,
+          b: 40,
+          ...(userLayout.margin || {}),
+        },
         ...(autoResize ? { autosize: true } : {}),
       };
+      const data = parsed.data || [];
       const config = { responsive: true, displayModeBar: false };
       Plotly.newPlot(divRef.current, data, layout, config);
     } catch (err) {
@@ -185,13 +191,12 @@ function VegaLiteRenderer({
 }) {
   const divRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      loadScript("https://cdn.jsdelivr.net/npm/vega@5", "vega"),
-      loadScript("https://cdn.jsdelivr.net/npm/vega-lite@5", "vegaLite"),
-      loadScript("https://cdn.jsdelivr.net/npm/vega-embed@6", "vegaEmbed"),
-    ]).then(() => setReady(true));
+    loadVegaEmbed()
+      .then(() => setReady(true))
+      .catch((err) => setLoadError(err.message));
   }, []);
 
   useEffect(() => {
@@ -218,6 +223,14 @@ function VegaLiteRenderer({
     }
   }, [ready, spec]);
 
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center w-full h-full min-h-[120px] text-xs text-red-400">
+        Failed to load Vega: {loadError}
+      </div>
+    );
+  }
+
   if (!ready) return <LoadingSpinner />;
 
   return (
@@ -239,19 +252,14 @@ function BokehRenderer({
   className: string;
 }) {
   const divRef = useRef<HTMLDivElement>(null);
+  const [bokehId] = useState(() => `bokeh-${Math.random().toString(36).slice(2)}`);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      loadScript(
-        "https://cdn.bokeh.org/bokeh/release/bokeh-3.4.3.min.js",
-        "Bokeh"
-      ),
-      loadScript(
-        "https://cdn.bokeh.org/bokeh/release/bokeh-api-3.4.3.min.js",
-        "BokehAPI"
-      ),
-    ]).then(() => setReady(true));
+    loadBokeh()
+      .then(() => setReady(true))
+      .catch((err) => setLoadError(err.message));
   }, []);
 
   useEffect(() => {
@@ -259,18 +267,26 @@ function BokehRenderer({
     try {
       const parsed = typeof spec === "string" ? JSON.parse(spec) : spec;
       divRef.current.innerHTML = "";
-      (window as any).Bokeh.embed.embed_item(parsed, divRef.current.id);
+      (window as any).Bokeh.embed.embed_item(parsed, bokehId);
     } catch (err) {
       console.error("Bokeh render error:", err);
     }
-  }, [ready, spec]);
+  }, [ready, spec, bokehId]);
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center w-full h-full min-h-[120px] text-xs text-red-400">
+        Failed to load Bokeh: {loadError}
+      </div>
+    );
+  }
 
   if (!ready) return <LoadingSpinner />;
 
   return (
     <div
       ref={divRef}
-      id={`bokeh-${Math.random().toString(36).slice(2)}`}
+      id={bokehId}
       className={`viz-renderer viz-bokeh ${className}`}
       style={{ width: "100%", height: "100%" }}
     />
@@ -287,67 +303,20 @@ function LoadingSpinner() {
   );
 }
 
+// ── CDN Script Loading ─────────────────────────────────────────────
+//
+// All UMD libraries (Plotly, Vega, Bokeh) have the same problem:
+// Webpack/turbopack set window.define (AMD), and UMD wrappers detect it
+// and register as AMD modules instead of setting globals.
+// We temporarily hide `define` before appending the script.
+
+/**
+ * Load a script from CDN, hiding AMD `define` to force UMD → global fallback.
+ * Polls for the expected global up to 3 seconds after load.
+ */
 const _scriptCache = new Map<string, Promise<void>>();
 
-/**
- * Load Plotly.js from CDN, working around the UMD/AMD conflict.
- *
- * Webpack/turbopack define `window.define` for AMD module loading.
- * Plotly's UMD wrapper detects this and registers as an AMD module
- * instead of setting `window.Plotly`.  We temporarily remove `define`
- * so Plotly falls through to the browser-global code path.
- */
-let _plotlyPromise: Promise<void> | null = null;
-
-function loadPlotly(): Promise<void> {
-  if ((window as any).Plotly) return Promise.resolve();
-  if (_plotlyPromise) return _plotlyPromise;
-
-  _plotlyPromise = new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://cdn.plot.ly/plotly-2.35.2.min.js";
-    script.async = true;
-
-    // Temporarily hide AMD `define` so Plotly sets window.Plotly
-    const savedDefine = (window as any).define;
-    (window as any).define = undefined;
-
-    script.onload = () => {
-      // Restore define
-      if (savedDefine) (window as any).define = savedDefine;
-
-      // Wait for global to appear
-      let attempts = 0;
-      const check = () => {
-        if ((window as any).Plotly) {
-          resolve();
-        } else if (attempts++ < 60) {
-          setTimeout(check, 50);
-        } else {
-          reject(new Error("Plotly global not found after script loaded"));
-        }
-      };
-      check();
-    };
-
-    script.onerror = () => {
-      // Restore define on error too
-      if (savedDefine) (window as any).define = savedDefine;
-      _plotlyPromise = null;
-      reject(new Error("Failed to load Plotly.js from CDN"));
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return _plotlyPromise;
-}
-
-/**
- * Generic CDN script loader with global polling.
- * Used for Vega, Bokeh, and other libraries.
- */
-function loadScript(src: string, globalName: string): Promise<void> {
+function loadCdnScript(src: string, globalName: string): Promise<void> {
   if ((window as any)[globalName]) return Promise.resolve();
   if (_scriptCache.has(src)) return _scriptCache.get(src)!;
 
@@ -355,8 +324,13 @@ function loadScript(src: string, globalName: string): Promise<void> {
     const script = document.createElement("script");
     script.src = src;
     script.async = true;
+
+    // Hide AMD define so UMD wrapper falls through to global assignment
+    const savedDefine = (window as any).define;
+    (window as any).define = undefined;
+
     script.onload = () => {
-      // Poll until the global is available (up to 3 seconds).
+      if (savedDefine) (window as any).define = savedDefine;
       let attempts = 0;
       const check = () => {
         if ((window as any)[globalName]) {
@@ -369,10 +343,92 @@ function loadScript(src: string, globalName: string): Promise<void> {
       };
       check();
     };
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+
+    script.onerror = () => {
+      if (savedDefine) (window as any).define = savedDefine;
+      _scriptCache.delete(src);
+      reject(new Error(`Failed to load ${src}`));
+    };
+
     document.head.appendChild(script);
   });
 
   _scriptCache.set(src, promise);
   return promise;
+}
+
+// ── Plotly Loader ──────────────────────────────────────────────────
+
+let _plotlyPromise: Promise<void> | null = null;
+
+function loadPlotly(): Promise<void> {
+  if ((window as any).Plotly) return Promise.resolve();
+  if (_plotlyPromise) return _plotlyPromise;
+  _plotlyPromise = loadCdnScript(
+    "https://cdn.plot.ly/plotly-2.35.2.min.js",
+    "Plotly"
+  );
+  _plotlyPromise.catch(() => { _plotlyPromise = null; });
+  return _plotlyPromise;
+}
+
+// ── Vega-Embed Loader ──────────────────────────────────────────────
+// Must load vega → vega-lite → vega-embed sequentially (each depends on prior).
+
+let _vegaPromise: Promise<void> | null = null;
+
+function loadVegaEmbed(): Promise<void> {
+  if ((window as any).vegaEmbed) return Promise.resolve();
+  if (_vegaPromise) return _vegaPromise;
+
+  _vegaPromise = loadCdnScript(
+    "https://cdn.jsdelivr.net/npm/vega@5",
+    "vega"
+  )
+    .then(() =>
+      loadCdnScript(
+        "https://cdn.jsdelivr.net/npm/vega-lite@5",
+        "vegaLite"
+      )
+    )
+    .then(() =>
+      loadCdnScript(
+        "https://cdn.jsdelivr.net/npm/vega-embed@6",
+        "vegaEmbed"
+      )
+    );
+
+  _vegaPromise.catch(() => { _vegaPromise = null; });
+  return _vegaPromise;
+}
+
+// ── Bokeh Loader ───────────────────────────────────────────────────
+// Load main bokeh first, then API extension (which adds to window.Bokeh).
+
+let _bokehPromise: Promise<void> | null = null;
+
+function loadBokeh(): Promise<void> {
+  if ((window as any).Bokeh) return Promise.resolve();
+  if (_bokehPromise) return _bokehPromise;
+
+  _bokehPromise = loadCdnScript(
+    "https://cdn.bokeh.org/bokeh/release/bokeh-3.4.3.min.js",
+    "Bokeh"
+  ).then(() => {
+    // API script extends Bokeh object — no new global to poll for,
+    // so we just load it and resolve on script.onload.
+    return new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.bokeh.org/bokeh/release/bokeh-api-3.4.3.min.js";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () =>
+        reject(new Error("Failed to load bokeh-api"));
+      document.head.appendChild(script);
+    });
+  });
+
+  _bokehPromise.catch(() => { _bokehPromise = null; });
+  return _bokehPromise;
 }
