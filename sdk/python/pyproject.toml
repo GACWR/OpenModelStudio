@@ -30,6 +30,9 @@ dependencies = [
     "requests>=2.28",
 ]
 
+[project.scripts]
+openmodelstudio = "openmodelstudio.cli:main"
+
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",

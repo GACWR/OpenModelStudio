@@ -18,6 +18,9 @@ import {
   SlidersHorizontal,
   Cloud,
   Activity,
+  Package,
+  BarChart3,
+  LayoutDashboard,
   Users,
   Box,
   Settings,
@@ -48,6 +51,7 @@ const sections = [
     items: [
       { name: "Workspaces", href: "/workspaces", icon: Terminal },
       { name: "Models", href: "/models", icon: Brain },
+      { name: "Model Registry", href: "/registry", icon: Package },
       { name: "Datasets", href: "/datasets", icon: Database },
       { name: "Data Sources", href: "/data-sources", icon: Plug },
       { name: "Feature Store", href: "/features", icon: Layers },
@@ -67,6 +71,13 @@ const sections = [
     items: [
       { name: "Model APIs", href: "/inference", icon: Cloud },
       { name: "Monitoring", href: "/monitoring", icon: Activity },
+    ],
+  },
+  {
+    label: "ANALYZE",
+    items: [
+      { name: "Visualizations", href: "/visualizations", icon: BarChart3 },
+      { name: "Dashboards", href: "/dashboards", icon: LayoutDashboard },
     ],
   },
   {

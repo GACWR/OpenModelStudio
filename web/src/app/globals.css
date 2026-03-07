@@ -408,3 +408,72 @@
 .pill-transition {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ===== REACT GRID LAYOUT OVERRIDES ===== */
+.react-grid-layout {
+  position: relative;
+  transition: height 300ms ease;
+}
+
+.react-grid-item {
+  transition: all 300ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 50;
+  will-change: transform;
+  opacity: 0.9;
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  bottom: 2px;
+  right: 2px;
+  cursor: se-resize;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.react-grid-item:hover > .react-resizable-handle {
+  opacity: 1;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0 0 2px 0;
+}
+
+.react-grid-placeholder {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px;
+  opacity: 1 !important;
+  transition: all 200ms ease;
+}
+
+/* SVG visualization styles */
+.viz-svg svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}

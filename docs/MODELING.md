@@ -164,6 +164,89 @@ print(f"Model type: {type(clf_loaded).__name__}")
 print(f"Estimators: {clf_loaded.n_estimators}")
 ```
 
+## Cell 14 -- Visualize Training Results
+
+Create a visualization that shows your training metrics. This uses the unified visualization abstraction -- the same `render()` function works for matplotlib, plotly, altair, and 6 other backends.
+
+```python
+import matplotlib.pyplot as plt
+
+# Create a visualization record on the platform
+viz = openmodelstudio.create_visualization("titanic-accuracy",
+    backend="matplotlib",
+    description="Random Forest accuracy across experiments")
+
+# Plot the results
+fig, ax = plt.subplots(figsize=(8, 5))
+configs = ["rf-tuned\n(200 trees, depth=8)", "rf-deep\n(500 trees, depth=15)"]
+accuracies = [0.94, 0.96]
+bars = ax.bar(configs, accuracies, color=["#8b5cf6", "#10b981"], width=0.5)
+ax.set_ylabel("Accuracy")
+ax.set_title("Titanic RF — Experiment Comparison")
+ax.set_ylim(0.9, 1.0)
+for bar, acc in zip(bars, accuracies):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
+            f"{acc:.2f}", ha="center", fontsize=12)
+
+# render() auto-detects matplotlib and converts to SVG
+output = openmodelstudio.render(fig)
+
+# Publish so it appears in dashboards
+openmodelstudio.publish_visualization(viz["id"])
+print("Visualization published")
+```
+
+After this cell, check the **Visualizations** page -- your chart is visible and can be added to any dashboard.
+
+## Cell 15 -- Interactive Plotly Chart
+
+For interactive charts with zoom, hover, and pan, use Plotly. JSON-based backends like Plotly and Altair also render live in the in-browser editor.
+
+```python
+viz2 = openmodelstudio.create_visualization("loss-curve",
+    backend="plotly",
+    description="Training loss per fold")
+
+import plotly.graph_objects as go
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=[1, 2, 3, 4, 5],
+    y=[0.35, 0.22, 0.15, 0.11, 0.08],
+    mode="lines+markers",
+    name="rf-tuned (loss)",
+    line=dict(color="#8b5cf6"),
+))
+fig.add_trace(go.Scatter(
+    x=[1, 2, 3, 4, 5],
+    y=[0.30, 0.18, 0.10, 0.06, 0.04],
+    mode="lines+markers",
+    name="rf-deep (loss)",
+    line=dict(color="#10b981"),
+))
+fig.update_layout(title="Cross-Validation Loss", xaxis_title="Fold", yaxis_title="Loss")
+
+output = openmodelstudio.render(fig)
+openmodelstudio.publish_visualization(viz2["id"])
+print("Interactive Plotly chart published")
+```
+
+## Cell 16 -- Build a Monitoring Dashboard
+
+Combine your visualizations into a single dashboard view.
+
+```python
+dashboard = openmodelstudio.create_dashboard("Titanic Experiment Monitor",
+    description="Training metrics for the Titanic classification experiments")
+
+print(f"Dashboard created: {dashboard['id']}")
+print("Open the Dashboards page to add your visualizations as panels")
+```
+
+After this cell, open the **Dashboards** page, click your new dashboard, and use **Add Panel** to add the visualizations you created above. Drag and resize panels to build your layout.
+
+For the full visualization reference including all 9 backends, the in-browser editor, and dashboard configuration, see [Visualizations & Dashboards](VISUALIZATIONS.md).
+
 ## What You Built
 
 After running the notebook, everything is visible across the platform:
@@ -175,4 +258,6 @@ After running the notebook, everything is visible across the platform:
 | **Jobs** | Training and inference jobs with status, duration, metrics charts |
 | **Experiments** | `titanic-tuning` experiment with two runs, parallel coordinates, metric comparison |
 | **Datasets** | `titanic` dataset with format, size, and version info |
+| **Visualizations** | `titanic-accuracy` bar chart and `loss-curve` interactive Plotly chart |
+| **Dashboards** | `Titanic Experiment Monitor` with drag-and-drop panels |
 | **Dashboard** | Updated summary metrics reflecting your new models, jobs, and experiments |

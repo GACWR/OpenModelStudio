@@ -20,3 +20,4 @@ pub mod monitoring;
 pub mod automl;
 pub mod api_keys;
 pub mod sdk;
+pub mod visualizations;

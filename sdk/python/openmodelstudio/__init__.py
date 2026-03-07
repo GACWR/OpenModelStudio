@@ -1,4 +1,4 @@
-"""OpenModelStudio SDK — register models, load datasets, and track experiments from workspaces."""
+"""OpenModelStudio SDK — register models, load datasets, track experiments, and visualize from workspaces."""
 
 from .client import Client
 from .model import (
@@ -47,7 +47,45 @@ from .model import (
     delete_experiment,
 )
 
-__version__ = "0.0.1"
+# Registry
+from .registry import (
+    registry_search,
+    registry_list,
+    registry_info,
+    registry_install,
+    registry_uninstall,
+    list_installed,
+    set_registry,
+)
+
+# Visualization
+from .visualization import (
+    create_visualization,
+    publish_visualization,
+    render_visualization,
+    list_visualizations,
+    delete_visualization,
+    create_dashboard,
+    update_dashboard,
+    list_dashboards,
+    get_dashboard,
+    delete_dashboard,
+    render,
+    detect_backend,
+    VisualizationContext,
+    SUPPORTED_BACKENDS,
+)
+
+# Config
+from .config import (
+    get_registry_url,
+    set_registry_url,
+    get_models_dir,
+    set_models_dir,
+    get_config,
+)
+
+__version__ = "0.0.2"
 
 __all__ = [
     "Client",
@@ -97,4 +135,33 @@ __all__ = [
     "list_experiment_runs",
     "compare_experiment_runs",
     "delete_experiment",
+    # Registry
+    "registry_search",
+    "registry_list",
+    "registry_info",
+    "registry_install",
+    "registry_uninstall",
+    "list_installed",
+    "set_registry",
+    # Visualization
+    "create_visualization",
+    "publish_visualization",
+    "render_visualization",
+    "list_visualizations",
+    "delete_visualization",
+    "create_dashboard",
+    "update_dashboard",
+    "list_dashboards",
+    "get_dashboard",
+    "delete_dashboard",
+    "render",
+    "detect_backend",
+    "VisualizationContext",
+    "SUPPORTED_BACKENDS",
+    # Config
+    "get_registry_url",
+    "set_registry_url",
+    "get_models_dir",
+    "set_models_dir",
+    "get_config",
 ]

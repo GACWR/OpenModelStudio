@@ -201,6 +201,30 @@ async fn main() {
         .route("/sdk/sweeps", post(routes::sdk::create_sweep))
         .route("/sdk/sweeps/{id}", get(routes::sdk::get_sweep))
         .route("/sdk/sweeps/{id}/stop", post(routes::sdk::stop_sweep))
+        // SDK Visualizations
+        .route("/sdk/visualizations", get(routes::visualizations::list_all))
+        .route("/sdk/visualizations", post(routes::visualizations::create))
+        .route("/sdk/visualizations/{id}", get(routes::visualizations::get))
+        .route("/sdk/visualizations/{id}/publish", post(routes::visualizations::publish))
+        .route("/sdk/visualizations/{id}/render", post(routes::visualizations::get))
+        // SDK Dashboards
+        .route("/sdk/dashboards", get(routes::visualizations::list_dashboards))
+        .route("/sdk/dashboards", post(routes::visualizations::create_dashboard))
+        .route("/sdk/dashboards/{id}", get(routes::visualizations::get_dashboard))
+        .route("/sdk/dashboards/{id}", put(routes::visualizations::update_dashboard))
+        // Visualizations
+        .route("/visualizations", get(routes::visualizations::list_all))
+        .route("/visualizations", post(routes::visualizations::create))
+        .route("/visualizations/{id}", get(routes::visualizations::get))
+        .route("/visualizations/{id}", put(routes::visualizations::update))
+        .route("/visualizations/{id}", delete(routes::visualizations::delete))
+        .route("/visualizations/{id}/publish", post(routes::visualizations::publish))
+        // Dashboards
+        .route("/dashboards", get(routes::visualizations::list_dashboards))
+        .route("/dashboards", post(routes::visualizations::create_dashboard))
+        .route("/dashboards/{id}", get(routes::visualizations::get_dashboard))
+        .route("/dashboards/{id}", put(routes::visualizations::update_dashboard))
+        .route("/dashboards/{id}", delete(routes::visualizations::delete_dashboard))
         // Admin
         .route("/admin/users", get(routes::admin::list_users))
         .route("/admin/users/{id}", put(routes::admin::update_user))
