@@ -163,7 +163,7 @@ G = nx.karate_club_graph()
 fig, ax = plt.subplots(figsize=(10, 8))
 pos = nx.spring_layout(G, seed=42)
 nx.draw_networkx(G, pos, ax=ax, node_color="#8b5cf6",
-                 edge_color="rgba(200,200,200,0.3)",
+                 edge_color=(0.78, 0.78, 0.78, 0.3),
                  font_color="black", node_size=300)
 
 output = oms.render(fig, viz_id=viz["id"])
@@ -203,9 +203,10 @@ viz = oms.create_visualization("data-coverage",
     backend="geopandas",
     description="Geographic data distribution")
 
-world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+url = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+world = gpd.read_file(url)
 fig, ax = plt.subplots(figsize=(12, 6))
-world.plot(ax=ax, color="#8b5cf6", edgecolor="rgba(255,255,255,0.3)")
+world.plot(ax=ax, color="#8b5cf6", edgecolor=(1, 1, 1, 0.3))
 ax.set_title("Data Coverage")
 
 output = oms.render(fig, viz_id=viz["id"])

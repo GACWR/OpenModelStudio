@@ -128,10 +128,7 @@ function PlotlyRenderer({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadScript(
-      "https://cdn.plot.ly/plotly-2.34.0.min.js",
-      "Plotly"
-    )
+    loadPlotly()
       .then(() => setReady(true))
       .catch((err) => setLoadError(err.message));
   }, []);
@@ -152,7 +149,6 @@ function PlotlyRenderer({
         ...(autoResize ? { autosize: true } : {}),
       };
       const config = { responsive: true, displayModeBar: false };
-      // Use newPlot for initial render (react requires existing plot)
       Plotly.newPlot(divRef.current, data, layout, config);
     } catch (err) {
       console.error("Plotly render error:", err);
@@ -293,6 +289,64 @@ function LoadingSpinner() {
 
 const _scriptCache = new Map<string, Promise<void>>();
 
+/**
+ * Load Plotly.js from CDN, working around the UMD/AMD conflict.
+ *
+ * Webpack/turbopack define `window.define` for AMD module loading.
+ * Plotly's UMD wrapper detects this and registers as an AMD module
+ * instead of setting `window.Plotly`.  We temporarily remove `define`
+ * so Plotly falls through to the browser-global code path.
+ */
+let _plotlyPromise: Promise<void> | null = null;
+
+function loadPlotly(): Promise<void> {
+  if ((window as any).Plotly) return Promise.resolve();
+  if (_plotlyPromise) return _plotlyPromise;
+
+  _plotlyPromise = new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.plot.ly/plotly-2.35.2.min.js";
+    script.async = true;
+
+    // Temporarily hide AMD `define` so Plotly sets window.Plotly
+    const savedDefine = (window as any).define;
+    (window as any).define = undefined;
+
+    script.onload = () => {
+      // Restore define
+      if (savedDefine) (window as any).define = savedDefine;
+
+      // Wait for global to appear
+      let attempts = 0;
+      const check = () => {
+        if ((window as any).Plotly) {
+          resolve();
+        } else if (attempts++ < 60) {
+          setTimeout(check, 50);
+        } else {
+          reject(new Error("Plotly global not found after script loaded"));
+        }
+      };
+      check();
+    };
+
+    script.onerror = () => {
+      // Restore define on error too
+      if (savedDefine) (window as any).define = savedDefine;
+      _plotlyPromise = null;
+      reject(new Error("Failed to load Plotly.js from CDN"));
+    };
+
+    document.head.appendChild(script);
+  });
+
+  return _plotlyPromise;
+}
+
+/**
+ * Generic CDN script loader with global polling.
+ * Used for Vega, Bokeh, and other libraries.
+ */
 function loadScript(src: string, globalName: string): Promise<void> {
   if ((window as any)[globalName]) return Promise.resolve();
   if (_scriptCache.has(src)) return _scriptCache.get(src)!;
@@ -302,7 +356,6 @@ function loadScript(src: string, globalName: string): Promise<void> {
     script.src = src;
     script.async = true;
     script.onload = () => {
-      // Some libraries need an extra tick to register their global.
       // Poll until the global is available (up to 3 seconds).
       let attempts = 0;
       const check = () => {

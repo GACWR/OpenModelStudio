@@ -266,7 +266,7 @@ def render(ctx):
     G = nx.karate_club_graph()
     pos = nx.spring_layout(G, seed=42)
     nx.draw_networkx(G, pos, ax=ax, node_color="#8b5cf6",
-                     edge_color="rgba(255,255,255,0.2)",
+                     edge_color=(1, 1, 1, 0.2),
                      font_color="white", node_size=200)
     ax.set_title("Karate Club Graph", color="white")
 
@@ -281,8 +281,9 @@ def render(ctx):
     fig.patch.set_alpha(0)
     ax.set_facecolor("none")
 
-    world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
-    world.plot(ax=ax, color="#8b5cf6", edgecolor="rgba(255,255,255,0.3)")
+    url = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+    world = gpd.read_file(url)
+    world.plot(ax=ax, color="#8b5cf6", edgecolor=(1, 1, 1, 0.3))
     ax.set_title("World Map", color="white")
     ax.tick_params(colors="white")
 

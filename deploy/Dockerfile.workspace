@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir \
     torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir \
     "scikit-learn>=1.6" matplotlib seaborn \
+    "numexpr>=2.10.2" "bottleneck>=1.4.2" \
     transformers datasets accelerate \
     boto3 psycopg2-binary \
     tensorflow keras

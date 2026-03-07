@@ -206,6 +206,14 @@ def detect_backend(obj) -> str:
     except ImportError:
         pass
 
+    # Datashader
+    try:
+        import datashader.transfer_functions as tf
+        if isinstance(obj, tf.Image):
+            return "datashader"
+    except ImportError:
+        pass
+
     raise TypeError(
         f"Cannot auto-detect visualization backend for {type(obj).__name__}. "
         f"Supported backends: {', '.join(SUPPORTED_BACKENDS)}"
