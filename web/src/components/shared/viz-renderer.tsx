@@ -125,16 +125,21 @@ function PlotlyRenderer({
 }) {
   const divRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadScript(
-      "https://cdn.plot.ly/plotly-2.35.2.min.js",
+      "https://cdn.plot.ly/plotly-2.34.0.min.js",
       "Plotly"
-    ).then(() => setReady(true));
+    )
+      .then(() => setReady(true))
+      .catch((err) => setLoadError(err.message));
   }, []);
 
   useEffect(() => {
     if (!ready || !divRef.current) return;
+    const Plotly = (window as any).Plotly;
+    if (!Plotly) return;
     try {
       const parsed = typeof spec === "string" ? JSON.parse(spec) : spec;
       const data = parsed.data || [];
@@ -147,11 +152,20 @@ function PlotlyRenderer({
         ...(autoResize ? { autosize: true } : {}),
       };
       const config = { responsive: true, displayModeBar: false };
-      (window as any).Plotly.react(divRef.current, data, layout, config);
+      // Use newPlot for initial render (react requires existing plot)
+      Plotly.newPlot(divRef.current, data, layout, config);
     } catch (err) {
       console.error("Plotly render error:", err);
     }
   }, [ready, spec, autoResize]);
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center w-full h-full min-h-[120px] text-xs text-red-400">
+        Failed to load Plotly: {loadError}
+      </div>
+    );
+  }
 
   if (!ready) return <LoadingSpinner />;
 
@@ -287,7 +301,21 @@ function loadScript(src: string, globalName: string): Promise<void> {
     const script = document.createElement("script");
     script.src = src;
     script.async = true;
-    script.onload = () => resolve();
+    script.onload = () => {
+      // Some libraries need an extra tick to register their global.
+      // Poll until the global is available (up to 3 seconds).
+      let attempts = 0;
+      const check = () => {
+        if ((window as any)[globalName]) {
+          resolve();
+        } else if (attempts++ < 60) {
+          setTimeout(check, 50);
+        } else {
+          reject(new Error(`${globalName} not found after loading ${src}`));
+        }
+      };
+      check();
+    };
     script.onerror = () => reject(new Error(`Failed to load ${src}`));
     document.head.appendChild(script);
   });

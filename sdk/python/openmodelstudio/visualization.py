@@ -212,14 +212,18 @@ def detect_backend(obj) -> str:
     )
 
 
-def render(obj, backend: str = None) -> dict:
+def render(obj, backend: str = None, viz_id: str = None, _client=None) -> dict:
     """Render a visualization object to its output format.
 
-    Auto-detects the backend if not specified.
+    Auto-detects the backend if not specified. When ``viz_id`` is provided,
+    the rendered output is automatically pushed to the platform so it
+    appears in the visualization preview and on dashboards.
 
     Args:
         obj: A figure/chart object (matplotlib Figure, plotly Figure, etc.)
         backend: Override backend detection
+        viz_id: Optional visualization UUID — when set, the rendered output
+                is saved to the API so the web UI can display it.
 
     Returns:
         Dict with 'type' (svg/plotly/bokeh/vega-lite/png) and 'content'
@@ -229,7 +233,22 @@ def render(obj, backend: str = None) -> dict:
     renderer = _RENDERERS.get(backend)
     if renderer is None:
         raise ValueError(f"Unsupported backend: {backend}. Supported: {', '.join(SUPPORTED_BACKENDS)}")
-    return renderer(obj)
+    result = renderer(obj)
+
+    # Push rendered output to the platform when viz_id is provided
+    if viz_id:
+        if _client is None:
+            from .model import _get_client
+            _client = _get_client()
+        try:
+            _client._put(f"/sdk/visualizations/{viz_id}", {
+                "rendered_output": result["content"],
+            })
+        except Exception:
+            # Don't fail the render if the push fails (e.g. no API connection)
+            pass
+
+    return result
 
 
 # ── SDK Integration Functions ─────────────────────────────────────────

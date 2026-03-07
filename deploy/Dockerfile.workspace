@@ -19,6 +19,12 @@ RUN pip install --no-cache-dir \
     boto3 psycopg2-binary \
     tensorflow keras
 
+# Install visualization backends (all 9 supported by the SDK)
+RUN pip install --no-cache-dir \
+    plotly>=5.18 altair>=5.2 bokeh>=3.3 \
+    plotnine>=0.13 networkx>=3.2 \
+    geopandas>=0.14 datashader>=0.16
+
 # Set JupyterLab dark theme as default
 RUN mkdir -p /opt/conda/share/jupyter/lab/settings && \
     echo '{ "@jupyterlab/apputils-extension:themes": { "theme": "JupyterLab Dark" } }' \

@@ -40,7 +40,7 @@ ax.set_ylabel("Loss")
 ax.set_title("Training Loss")
 
 # 3. Push rendered output to platform
-output = oms.render(fig)  # auto-detects matplotlib → SVG
+output = oms.render(fig, viz_id=viz["id"])  # auto-detects matplotlib → SVG, pushes to API
 oms.publish_visualization(viz["id"])
 ```
 
@@ -71,7 +71,7 @@ fig.add_trace(go.Scatter(
 ))
 fig.update_layout(title="Model Accuracy", xaxis_title="Epoch", yaxis_title="Accuracy")
 
-output = oms.render(fig)  # auto-detects plotly → Plotly JSON
+output = oms.render(fig, viz_id=viz["id"])  # auto-detects plotly → Plotly JSON, pushes to API
 oms.publish_visualization(viz["id"])
 ```
 
@@ -99,7 +99,7 @@ chart = alt.Chart(data).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).
     color=alt.Color("feature", scale=alt.Scale(scheme="category10")),
 )
 
-output = oms.render(chart)  # auto-detects altair → Vega-Lite JSON
+output = oms.render(chart, viz_id=viz["id"])  # auto-detects altair → Vega-Lite JSON, pushes to API
 oms.publish_visualization(viz["id"])
 ```
 
@@ -120,7 +120,7 @@ data = pd.DataFrame(np.random.randn(100, 5), columns=["A", "B", "C", "D", "E"])
 fig, ax = plt.subplots(figsize=(8, 6))
 sns.heatmap(data.corr(), annot=True, cmap="coolwarm", ax=ax)
 
-output = oms.render(fig)
+output = oms.render(fig, viz_id=viz["id"])
 oms.publish_visualization(viz["id"])
 ```
 
@@ -144,7 +144,7 @@ source = ColumnDataSource(data=dict(x=x, y=y))
 p = figure(title="Signal", width=800, height=400)
 p.line("x", "y", source=source, line_width=2, color="#8b5cf6")
 
-output = oms.render(p)
+output = oms.render(p, viz_id=viz["id"])
 oms.publish_visualization(viz["id"])
 ```
 
@@ -166,7 +166,7 @@ nx.draw_networkx(G, pos, ax=ax, node_color="#8b5cf6",
                  edge_color="rgba(200,200,200,0.3)",
                  font_color="black", node_size=300)
 
-output = oms.render(fig)
+output = oms.render(fig, viz_id=viz["id"])
 oms.publish_visualization(viz["id"])
 ```
 
@@ -188,7 +188,7 @@ canvas = ds.Canvas(plot_width=800, plot_height=600)
 agg = canvas.points(data, "x", "y")
 img = ds.tf.shade(agg, cmap=["#000000", "#8b5cf6", "#ffffff"])
 
-output = oms.render(img)
+output = oms.render(img, viz_id=viz["id"])
 oms.publish_visualization(viz["id"])
 ```
 
@@ -208,7 +208,7 @@ fig, ax = plt.subplots(figsize=(12, 6))
 world.plot(ax=ax, color="#8b5cf6", edgecolor="rgba(255,255,255,0.3)")
 ax.set_title("Data Coverage")
 
-output = oms.render(fig)
+output = oms.render(fig, viz_id=viz["id"])
 oms.publish_visualization(viz["id"])
 ```
 
@@ -228,6 +228,14 @@ The `oms.render()` function auto-detects the backend from the object type and co
 | `geopandas.GeoDataFrame` | geopandas | SVG string (via matplotlib) |
 
 You never need to specify the backend manually when calling `render()` -- it inspects the object's class.
+
+Pass `viz_id=` to automatically push the rendered output to the platform so it appears in the web UI preview:
+
+```python
+output = oms.render(fig, viz_id=viz["id"])
+```
+
+Without `viz_id`, `render()` returns the output dict locally but doesn't save it.
 
 ## In-Browser Visualization Editor
 

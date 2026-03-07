@@ -188,8 +188,8 @@ for bar, acc in zip(bars, accuracies):
     ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
             f"{acc:.2f}", ha="center", fontsize=12)
 
-# render() auto-detects matplotlib and converts to SVG
-output = openmodelstudio.render(fig)
+# render() auto-detects matplotlib, converts to SVG, and pushes to the platform
+output = openmodelstudio.render(fig, viz_id=viz["id"])
 
 # Publish so it appears in dashboards
 openmodelstudio.publish_visualization(viz["id"])
@@ -226,24 +226,30 @@ fig.add_trace(go.Scatter(
 ))
 fig.update_layout(title="Cross-Validation Loss", xaxis_title="Fold", yaxis_title="Loss")
 
-output = openmodelstudio.render(fig)
+output = openmodelstudio.render(fig, viz_id=viz2["id"])
 openmodelstudio.publish_visualization(viz2["id"])
 print("Interactive Plotly chart published")
 ```
 
 ## Cell 16 -- Build a Monitoring Dashboard
 
-Combine your visualizations into a single dashboard view.
+Combine your visualizations into a single dashboard view with panels.
 
 ```python
 dashboard = openmodelstudio.create_dashboard("Titanic Experiment Monitor",
     description="Training metrics for the Titanic classification experiments")
 
+# Add both visualizations as panels
+openmodelstudio.update_dashboard(dashboard["id"], layout=[
+    {"visualization_id": viz["id"], "x": 0, "y": 0, "w": 6, "h": 3},
+    {"visualization_id": viz2["id"], "x": 6, "y": 0, "w": 6, "h": 3},
+])
+
 print(f"Dashboard created: {dashboard['id']}")
-print("Open the Dashboards page to add your visualizations as panels")
+print("Open the Dashboards page to see your panels")
 ```
 
-After this cell, open the **Dashboards** page, click your new dashboard, and use **Add Panel** to add the visualizations you created above. Drag and resize panels to build your layout.
+After this cell, open the **Dashboards** page and click your new dashboard. Both visualizations appear side-by-side. You can drag and resize panels to adjust the layout.
 
 For the full visualization reference including all 9 backends, the in-browser editor, and dashboard configuration, see [Visualizations & Dashboards](VISUALIZATIONS.md).
 

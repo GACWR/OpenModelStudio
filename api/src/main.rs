@@ -205,6 +205,7 @@ async fn main() {
         .route("/sdk/visualizations", get(routes::visualizations::list_all))
         .route("/sdk/visualizations", post(routes::visualizations::create))
         .route("/sdk/visualizations/{id}", get(routes::visualizations::get))
+        .route("/sdk/visualizations/{id}", put(routes::visualizations::update))
         .route("/sdk/visualizations/{id}/publish", post(routes::visualizations::publish))
         .route("/sdk/visualizations/{id}/render", post(routes::visualizations::get))
         // SDK Dashboards

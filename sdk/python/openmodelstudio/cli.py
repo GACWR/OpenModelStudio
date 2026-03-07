@@ -9,10 +9,14 @@ Usage:
     openmodelstudio info <name>          Show details about a registry model
     openmodelstudio config               Show current configuration
     openmodelstudio config set <key> <value>  Set a configuration value
+
+Commands that modify the local project (install, uninstall, list) must be run
+from within an OpenModelStudio project directory.  A project is identified by
+the presence of a '.openmodelstudio/' directory, 'openmodelstudio.json', or
+'deploy/Dockerfile.workspace' in an ancestor directory.
 """
 
 import argparse
-import json
 import sys
 
 
@@ -33,11 +37,15 @@ def _print_table(rows: list, headers: list):
 
 
 def cmd_install(args):
+    from .config import require_project_root, get_project_models_dir
     from .registry import registry_install
+
+    require_project_root()
+    models_dir = get_project_models_dir()
     name = args.name
     print(f"Installing '{name}' from registry...")
     try:
-        path = registry_install(name, force=args.force)
+        path = registry_install(name, force=args.force, models_dir=str(models_dir))
         print(f"Installed to {path}")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -45,11 +53,16 @@ def cmd_install(args):
 
 
 def cmd_uninstall(args):
+    from .config import require_project_root, get_project_models_dir
     from .registry import registry_uninstall
-    if registry_uninstall(args.name):
+
+    require_project_root()
+    models_dir = get_project_models_dir()
+    if registry_uninstall(args.name, models_dir=str(models_dir)):
         print(f"Uninstalled '{args.name}'")
     else:
         print(f"Model '{args.name}' is not installed")
+        sys.exit(1)
 
 
 def cmd_search(args):
@@ -72,8 +85,16 @@ def cmd_search(args):
 
 
 def cmd_list(args):
+    from .config import find_project_root, get_project_models_dir, get_models_dir
     from .registry import list_installed
-    installed = list_installed()
+
+    root = find_project_root()
+    if root is not None:
+        models_dir = str(get_project_models_dir())
+    else:
+        models_dir = str(get_models_dir())
+
+    installed = list_installed(models_dir=models_dir)
     if not installed:
         print("No models installed. Use 'openmodelstudio install <name>' to install one.")
         return
@@ -174,7 +195,7 @@ def main():
     p_search = subparsers.add_parser("search", help="Search the model registry")
     p_search.add_argument("query", nargs="*", help="Search terms")
     p_search.add_argument("--category", "-c", help="Filter by category")
-    p_search.add_argument("--framework", "-f", help="Filter by framework")
+    p_search.add_argument("--framework", "-fw", help="Filter by framework")
     p_search.set_defaults(func=cmd_search)
 
     # list
