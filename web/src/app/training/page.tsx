@@ -19,6 +19,7 @@ import { motion } from "framer-motion";
 import { Play, Plus, Pause, Square } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -90,6 +91,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function TrainingPage() {
+  const { selectedProjectId } = useProjectFilter();
   const [jobs, setJobs] = useState<TrainingJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export default function TrainingPage() {
   const fetchJobs = () => {
     setLoading(true);
     setError(null);
-    api.get<any[]>("/training/jobs")
+    api.getFiltered<any[]>("/training/jobs", selectedProjectId)
       .then((data) => setJobs(data.map(mapJob)))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load training jobs"))
       .finally(() => setLoading(false));
@@ -111,8 +113,8 @@ export default function TrainingPage() {
 
   useEffect(() => {
     fetchJobs();
-    api.get<{ id: string; name: string; framework: string }[]>("/models").then(setModels).catch(() => {});
-  }, []);
+    api.getFiltered<{ id: string; name: string; framework: string }[]>("/models", selectedProjectId).then(setModels).catch(() => {});
+  }, [selectedProjectId]);
 
   const handleNewJob = async () => {
     if (!newModelId) { toast.error("Select a model"); return; }

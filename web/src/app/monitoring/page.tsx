@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/components/shared/animated-page";
 import { Activity, RefreshCw, ArrowLeft, AlertTriangle, Clock } from "lucide-react";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface ModelStatus {
   id: string;
@@ -59,6 +60,7 @@ const alertColors: Record<string, string> = {
 };
 
 export default function MonitoringPage() {
+  const { selectedProjectId } = useProjectFilter();
   const [models, setModels] = useState<ModelStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,13 +70,13 @@ export default function MonitoringPage() {
   const fetchData = () => {
     setLoading(true);
     setError(null);
-    api.get<any[]>("/monitoring/models")
+    api.getFiltered<any[]>("/monitoring/models", selectedProjectId)
       .then((data) => setModels(data.map(mapEndpoint)))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load monitoring data"))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [selectedProjectId]);
 
   const model = models.find((m) => m.id === selected);
   const healthyCount = models.filter((m) => m.status === "healthy").length;

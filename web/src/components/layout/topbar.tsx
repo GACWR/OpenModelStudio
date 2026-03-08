@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
 import { useSearch } from "@/components/shared/search-overlay";
+import { ProjectFilter } from "@/components/shared/project-filter";
 import Link from "next/link";
 
 function getBreadcrumbs(pathname: string) {
@@ -56,6 +57,7 @@ export function Topbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <ProjectFilter />
         <Button
           variant="ghost"
           size="sm"

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use uuid::Uuid;
@@ -13,12 +13,18 @@ use crate::AppState;
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Workspace>>> {
-    let workspaces: Vec<Workspace> = sqlx::query_as(
-        "SELECT * FROM workspaces ORDER BY updated_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let workspaces: Vec<Workspace> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM workspaces WHERE project_id = $1 ORDER BY updated_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM workspaces ORDER BY updated_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(workspaces))
 }
 

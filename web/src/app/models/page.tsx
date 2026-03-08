@@ -16,6 +16,7 @@ import { Brain, Search, Plus, Terminal, Code2, Package } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,7 @@ const frameworkColors: Record<string, string> = {
 
 export default function ModelsPage() {
   const router = useRouter();
+  const { selectedProjectId, projects } = useProjectFilter();
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +55,10 @@ export default function ModelsPage() {
   const [regFramework, setRegFramework] = useState("");
   const [regProject, setRegProject] = useState("");
   const [registering, setRegistering] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
   const fetchModels = () => {
     setLoading(true);
-    api.get<Model[]>("/models")
+    api.getFiltered<Model[]>("/models", selectedProjectId)
       .then(setModels)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -82,8 +83,7 @@ export default function ModelsPage() {
 
   useEffect(() => {
     fetchModels();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch(() => {});
-  }, []);
+  }, [selectedProjectId]);
 
   const filtered = models.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||

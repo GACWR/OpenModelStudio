@@ -79,12 +79,18 @@ pub async fn start(
 pub async fn list_all_jobs(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Job>>> {
-    let jobs: Vec<Job> = sqlx::query_as(
-        "SELECT * FROM jobs ORDER BY created_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let jobs: Vec<Job> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM jobs WHERE project_id = $1 ORDER BY created_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM jobs ORDER BY created_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(jobs))
 }
 

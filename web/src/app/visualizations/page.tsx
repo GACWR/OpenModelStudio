@@ -15,6 +15,7 @@ import { BarChart3, Search, Plus, Eye, Clock, Trash2, ChevronRight } from "lucid
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -71,6 +72,7 @@ const BACKENDS = [
 
 export default function VisualizationsPage() {
   const router = useRouter();
+  const { selectedProjectId } = useProjectFilter();
   const [visualizations, setVisualizations] = useState<Visualization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export default function VisualizationsPage() {
     setLoading(true);
     setError(null);
     api
-      .get<Visualization[]>("/visualizations")
+      .getFiltered<Visualization[]>("/visualizations", selectedProjectId)
       .then(setVisualizations)
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Failed to load visualizations")
@@ -100,7 +102,7 @@ export default function VisualizationsPage() {
 
   useEffect(() => {
     fetchVisualizations();
-  }, []);
+  }, [selectedProjectId]);
 
   const handleCreate = async () => {
     if (!newName.trim()) {

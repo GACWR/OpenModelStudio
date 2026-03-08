@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage } from "@/components/shared/animated-page";
 import { GlassCard } from "@/components/shared/glass-card";
@@ -65,6 +66,7 @@ function mapSource(s: any) {
 }
 
 export default function DataSourcesPage() {
+  const { selectedProjectId, projects } = useProjectFilter();
   const [sources, setSources] = useState<ReturnType<typeof mapSource>[]>([]);
   const [datasets, setDatasets] = useState<{ id: string; name: string; rows: string; size: string; format: string; updated: string }[]>([]);
   const [features, setFeatures] = useState<{ id: string; name: string; entity: string; dtype: string; shared: boolean; updated: string }[]>([]);
@@ -76,7 +78,6 @@ export default function DataSourcesPage() {
   const [testSuccess, setTestSuccess] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("sources");
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [dsProject, setDsProject] = useState("");
   const [dsName, setDsName] = useState("");
 
@@ -84,7 +85,7 @@ export default function DataSourcesPage() {
     setLoading(true);
     setError(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<any[]>("/data-sources")
+    api.getFiltered<any[]>("/data-sources", selectedProjectId)
       .then((data) => setSources(data.map(mapSource)))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load data sources"))
       .finally(() => setLoading(false));
@@ -92,9 +93,8 @@ export default function DataSourcesPage() {
 
   useEffect(() => {
     fetchSources();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch(() => {});
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<any[]>("/datasets").then((data) => setDatasets(data.map((d: any) => ({
+    api.getFiltered<any[]>("/datasets", selectedProjectId).then((data) => setDatasets(data.map((d: any) => ({
       id: d.id,
       name: d.name || "",
       rows: d.row_count ? d.row_count.toLocaleString() : "—",
@@ -103,7 +103,7 @@ export default function DataSourcesPage() {
       updated: d.updated_at ? new Date(d.updated_at).toLocaleDateString() : "—",
     })))).catch((err) => setError(err instanceof Error ? err.message : "Failed to load datasets"));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<any[]>("/features").then((data) => setFeatures(data.map((f: any) => ({
+    api.getFiltered<any[]>("/features", selectedProjectId).then((data) => setFeatures(data.map((f: any) => ({
       id: f.id,
       name: f.name || "",
       entity: f.entity || "—",
@@ -111,7 +111,7 @@ export default function DataSourcesPage() {
       shared: !!f.shared,
       updated: f.updated_at ? new Date(f.updated_at).toLocaleDateString() : "—",
     })))).catch((err) => setError(err instanceof Error ? err.message : "Failed to load features"));
-  }, []);
+  }, [selectedProjectId]);
 
   const handleTestConnection = async () => {
     if (!dsProject) { toast.error("Select a project first"); return; }

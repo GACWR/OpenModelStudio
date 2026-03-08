@@ -58,12 +58,18 @@ pub async fn list(
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Model>>> {
-    let models: Vec<Model> = sqlx::query_as(
-        "SELECT * FROM models ORDER BY updated_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let models: Vec<Model> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM models WHERE project_id = $1 ORDER BY updated_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM models ORDER BY updated_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(models))
 }
 

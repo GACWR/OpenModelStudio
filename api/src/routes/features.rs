@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use uuid::Uuid;
@@ -26,24 +26,36 @@ pub async fn list(
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Feature>>> {
-    let features: Vec<Feature> = sqlx::query_as(
-        "SELECT * FROM features ORDER BY created_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let features: Vec<Feature> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM features WHERE project_id = $1 ORDER BY created_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM features ORDER BY created_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(features))
 }
 
 pub async fn list_groups(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<crate::models::extra::FeatureGroup>>> {
-    let groups: Vec<crate::models::extra::FeatureGroup> = sqlx::query_as(
-        "SELECT * FROM feature_groups ORDER BY created_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let groups: Vec<crate::models::extra::FeatureGroup> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM feature_groups WHERE project_id = $1 ORDER BY created_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM feature_groups ORDER BY created_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(groups))
 }
 

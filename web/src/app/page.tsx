@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface DashboardStats {
   total_projects: number;
@@ -90,6 +91,7 @@ function generateSparkline(stats: DashboardStats): Array<{ name: string; value: 
 }
 
 export default function DashboardPage() {
+  const { selectedProjectId } = useProjectFilter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -101,14 +103,14 @@ export default function DashboardPage() {
     setError(null);
     Promise.all([
       api.get<any[]>("/projects").catch(() => []),
-      api.get<any[]>("/training/jobs").catch(() => []),
-      api.get<any[]>("/models").catch(() => []),
-      api.get<any[]>("/datasets").catch(() => []),
+      api.getFiltered<any[]>("/training/jobs", selectedProjectId).catch(() => []),
+      api.getFiltered<any[]>("/models", selectedProjectId).catch(() => []),
+      api.getFiltered<any[]>("/datasets", selectedProjectId).catch(() => []),
       api.get<any[]>("/notifications").catch(() => []),
     ]).then(([projects, trainingJobs, models, datasets, notifications]) => {
       const activeJobs = (trainingJobs || []).filter((j: any) => j.status === "running" || j.status === "pending");
       setStats({
-        total_projects: (projects || []).length,
+        total_projects: selectedProjectId ? 1 : (projects || []).length,
         active_training: activeJobs.length,
         models_deployed: (models || []).length,
         total_datasets: (datasets || []).length,
@@ -135,7 +137,7 @@ export default function DashboardPage() {
     }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [selectedProjectId]);
 
   const sparklineData = useMemo(() => {
     if (!stats) return [];
