@@ -421,6 +421,25 @@ pub async fn resolve_model(
     Ok(Json(model))
 }
 
+/// GET /sdk/models/resolve-registry/{registry_name}
+/// Resolve a model by its registry_name column. Returns the full Model JSON
+/// including source_code. Used by SDK use_model().
+pub async fn resolve_registry_model(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Path(registry_name): Path<String>,
+) -> AppResult<Json<crate::models::model::Model>> {
+    let model: crate::models::model::Model = sqlx::query_as(
+        "SELECT * FROM models WHERE registry_name = $1 ORDER BY created_at DESC LIMIT 1"
+    )
+    .bind(&registry_name)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Registry model not found: {registry_name}")))?;
+
+    Ok(Json(model))
+}
+
 /// GET /sdk/models/{id}/artifact
 /// Serve the latest checkpoint artifact for a model, or extract the embedded
 /// base64 blob from the model's source_code (for SDK-registered models).

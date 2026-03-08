@@ -60,12 +60,14 @@ def cmd_install(args):
 
 
 def cmd_uninstall(args):
-    from .config import require_project_root, get_project_models_dir
+    from .config import require_project_root, get_project_models_dir, get_config
     from .registry import registry_uninstall
 
     require_project_root()
     models_dir = get_project_models_dir()
-    if registry_uninstall(args.name, models_dir=str(models_dir)):
+    cfg = get_config()
+    if registry_uninstall(args.name, models_dir=str(models_dir),
+                          api_url=cfg.get("api_url")):
         print(f"Uninstalled '{args.name}'")
     else:
         print(f"Model '{args.name}' is not installed")

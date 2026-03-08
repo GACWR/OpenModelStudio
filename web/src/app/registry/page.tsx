@@ -185,6 +185,8 @@ export default function RegistryPage() {
       });
       toast.success(`Installed ${installModel.name} successfully`);
       setInstallStatus((prev) => ({ ...prev, [installModel.name]: true }));
+      // Refetch full status to ensure consistency
+      fetchInstallStatus(models.map((m) => m.name));
       setInstallOpen(false);
       setInstallModel(null);
       setInstallProject("");
@@ -407,9 +409,13 @@ export default function RegistryPage() {
                         >
                           v{model.version}
                         </Badge>
-                        {installStatus[model.name] && (
+                        {installStatus[model.name] ? (
                           <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
                             Installed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground/50 text-[10px]">
+                            Not Installed
                           </Badge>
                         )}
                       </div>

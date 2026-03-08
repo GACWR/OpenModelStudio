@@ -118,18 +118,16 @@ openmodelstudio uninstall titanic-rf
 
 ### Using an Installed Model
 
-After installing, the model's `model.py` is available locally. Register it with the platform from a notebook:
+After installing, use `oms.use_model()` to load the model and register it in your project:
 
 ```python
 import openmodelstudio as oms
-from pathlib import Path
 
-# Read the installed model code
-model_dir = Path.home() / ".openmodelstudio" / "models" / "titanic-rf"
-code = (model_dir / "model.py").read_text()
+# Load the installed registry model
+iris = oms.use_model("iris-svm")
 
-# Register it into your project
-handle = oms.register_model("titanic-rf", source_code=code)
+# Register it in your project under any name
+handle = oms.register_model("my-iris", model=iris)
 print(handle)
 
 # Train it
@@ -137,7 +135,9 @@ job = oms.start_training(handle.model_id, wait=True)
 print(f"Training: {job['status']}")
 ```
 
-Or install directly from the UI on the **Model Registry** page (sidebar > Develop > Model Registry).
+`use_model()` resolves models via the platform API, so it works inside workspace containers (K8s pods) without requiring filesystem access. If the model isn't installed yet, it auto-installs from the registry.
+
+You can also install directly from the UI on the **Model Registry** page (sidebar > Develop > Model Registry). Each model card shows an **Installed** or **Not Installed** badge.
 
 ## Configuration
 
@@ -204,7 +204,11 @@ print(info["dependencies"])
 path = oms.registry_install("titanic-rf")
 path = oms.registry_install("mnist-cnn", force=True)
 
-# Uninstall
+# Use an installed model (works in workspace containers)
+iris = oms.use_model("iris-svm")
+handle = oms.register_model("my-iris", model=iris)
+
+# Uninstall (removes locally + unregisters from platform)
 oms.registry_uninstall("titanic-rf")
 
 # List installed

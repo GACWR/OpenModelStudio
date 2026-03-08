@@ -196,21 +196,48 @@ def _load_api_url() -> str:
         return ""
 
 
-def registry_uninstall(name: str, models_dir: str = None) -> bool:
+def registry_uninstall(name: str, models_dir: str = None,
+                       api_url: str = None, token: str = None) -> bool:
     """Uninstall a locally installed model.
+
+    Removes local files and unregisters from the platform API so the
+    dashboard reflects the change.
 
     Args:
         name: Model name
+        models_dir: Override models directory
+        api_url: Override API URL
+        token: Override auth token
 
     Returns:
         True if model was removed, False if it wasn't installed
     """
+    removed = False
     dest = Path(models_dir) if models_dir else get_models_dir()
     model_dir = dest / name
     if model_dir.exists():
         shutil.rmtree(model_dir)
-        return True
-    return False
+        removed = True
+
+    # Also unregister from platform API
+    _api_url = api_url or os.environ.get("OPENMODELSTUDIO_API_URL") or _load_api_url()
+    _token = token or os.environ.get("OPENMODELSTUDIO_TOKEN")
+    if _api_url:
+        try:
+            headers = {"Content-Type": "application/json"}
+            if _token:
+                headers["Authorization"] = f"Bearer {_token}"
+            resp = requests.post(
+                f"{_api_url}/models/registry-uninstall",
+                json={"name": name}, headers=headers, timeout=10,
+            )
+            if resp.ok:
+                print(f"  Unregistered '{name}' from platform")
+                removed = True
+        except Exception:
+            pass  # best-effort
+
+    return removed
 
 
 def list_installed(models_dir: str = None) -> list:

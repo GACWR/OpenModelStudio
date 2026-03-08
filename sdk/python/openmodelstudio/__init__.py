@@ -1,6 +1,6 @@
 """OpenModelStudio SDK — register models, load datasets, track experiments, and visualize from workspaces."""
 
-from .client import Client
+from .client import Client, RegistryModel
 from .model import (
     register_model,
     publish_version,
@@ -10,6 +10,8 @@ from .model import (
     upload_dataset,
     create_dataset,
     load_model,
+    # Registry Model
+    use_model,
     # Feature Store
     create_features,
     load_features,
@@ -89,6 +91,7 @@ __version__ = "0.0.2"
 
 __all__ = [
     "Client",
+    "RegistryModel",
     # Model registration
     "register_model",
     "publish_version",
@@ -100,6 +103,8 @@ __all__ = [
     "create_dataset",
     # Model loading
     "load_model",
+    # Registry Model
+    "use_model",
     # Feature Store
     "create_features",
     "load_features",

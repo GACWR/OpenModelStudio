@@ -97,6 +97,7 @@ async fn main() {
         .route("/models", get(routes::models::list_all))
         .route("/models", post(routes::models::create))
         .route("/models/registry-status", get(routes::models::registry_status))
+        .route("/models/registry-uninstall", post(routes::models::registry_uninstall))
         .route("/models/{id}", get(routes::models::get))
         .route("/models/{id}", put(routes::models::update))
         .route("/models/{id}", delete(routes::models::delete))
@@ -181,6 +182,7 @@ async fn main() {
         .route("/sdk/datasets/{id}/upload", post(routes::sdk::dataset_upload))
         .route("/sdk/datasets/{id}/content", get(routes::sdk::dataset_content))
         .route("/sdk/models/resolve/{name_or_id}", get(routes::sdk::resolve_model))
+        .route("/sdk/models/resolve-registry/{name}", get(routes::sdk::resolve_registry_model))
         .route("/sdk/models/{id}/artifact", get(routes::sdk::model_artifact))
         // SDK Feature Store
         .route("/sdk/features", post(routes::sdk::create_features))

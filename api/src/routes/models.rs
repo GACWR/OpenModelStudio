@@ -42,6 +42,31 @@ pub async fn registry_status(
     Ok(Json(result))
 }
 
+/// POST /models/registry-uninstall
+/// Marks a registry model as uninstalled by clearing its registry_name.
+#[derive(Debug, serde::Deserialize)]
+pub struct RegistryUninstallRequest {
+    pub name: String,
+}
+
+pub async fn registry_uninstall(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Json(req): Json<RegistryUninstallRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let updated = sqlx::query(
+        "UPDATE models SET registry_name = NULL, updated_at = NOW() WHERE registry_name = $1"
+    )
+    .bind(&req.name)
+    .execute(&state.db)
+    .await?;
+
+    Ok(Json(serde_json::json!({
+        "uninstalled": true,
+        "rows_affected": updated.rows_affected()
+    })))
+}
+
 pub async fn list(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,

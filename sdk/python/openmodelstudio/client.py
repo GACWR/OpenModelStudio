@@ -483,6 +483,28 @@ class ModelHandle:
         return f"ModelHandle(id={self.model_id!r}, name={self.name!r}, version={self.version})"
 
 
+class RegistryModel:
+    """A model loaded from the registry, ready to pass to register_model().
+
+    Usage::
+
+        iris = oms.use_model("iris-svm")
+        handle = oms.register_model("my-iris", model=iris)
+    """
+
+    def __init__(self, name: str, source_code: str, framework: str,
+                 description: str = None, registry_name: str = None):
+        self.name = name
+        self.source_code = source_code
+        self.framework = framework
+        self.description = description
+        self.registry_name = registry_name or name
+        self._is_registry_model = True
+
+    def __repr__(self):
+        return f"RegistryModel(name={self.name!r}, framework={self.framework!r})"
+
+
 class Client:
     """OpenModelStudio API client.
 
@@ -563,6 +585,15 @@ class Client:
             source_code: Python source code with a train(ctx) function
             file: Path to a .py file with train(ctx)/infer(ctx) functions
         """
+        # Handle RegistryModel instances (from use_model())
+        if hasattr(model, '_is_registry_model') and model._is_registry_model:
+            return self.register_model(
+                name,
+                source_code=model.source_code,
+                framework=model.framework,
+                description=model.description or description,
+            )
+
         # If a file path is provided, read source code from it
         if file is not None:
             if not os.path.isfile(file):
@@ -893,6 +924,83 @@ class Client:
                 os.unlink(tmpfile)
 
         raise ValueError(f"Unsupported framework for loading: {framework}")
+
+    # ── Registry Model Loading ───────────────────────────────────────
+
+    def use_model(self, registry_name: str) -> RegistryModel:
+        """Load an installed registry model, ready for register_model().
+
+        Tries the platform API first (works in workspace containers),
+        falls back to local filesystem, and auto-installs from registry
+        if not found anywhere.
+
+        Examples::
+
+            iris = oms.use_model("iris-svm")
+            handle = oms.register_model("my-iris", model=iris)
+
+        Args:
+            registry_name: The registry model name (e.g. "iris-svm")
+
+        Returns:
+            RegistryModel instance usable with register_model()
+        """
+        # 1. Try resolving from platform API (works inside workspace containers)
+        try:
+            model_info = self._get(f"/sdk/models/resolve-registry/{registry_name}")
+            return RegistryModel(
+                name=model_info["name"],
+                source_code=model_info.get("source_code", ""),
+                framework=model_info.get("framework", "pytorch"),
+                description=model_info.get("description"),
+                registry_name=registry_name,
+            )
+        except Exception:
+            pass
+
+        # 2. Try local filesystem (for host-side CLI usage)
+        from .config import get_models_dir
+        local_dir = get_models_dir() / registry_name
+        model_file = local_dir / "model.py"
+        manifest = local_dir / "model.json"
+        if model_file.exists():
+            import json as _json
+            info = {}
+            if manifest.exists():
+                try:
+                    info = _json.loads(manifest.read_text())
+                except Exception:
+                    pass
+            return RegistryModel(
+                name=registry_name,
+                source_code=model_file.read_text(),
+                framework=info.get("framework", "pytorch"),
+                description=info.get("description"),
+                registry_name=registry_name,
+            )
+
+        # 3. Auto-install from registry
+        from .registry import registry_install
+        registry_install(
+            registry_name,
+            api_url=self.api_url,
+            token=self.token,
+        )
+        # Retry API resolve after install
+        try:
+            model_info = self._get(f"/sdk/models/resolve-registry/{registry_name}")
+            return RegistryModel(
+                name=model_info["name"],
+                source_code=model_info.get("source_code", ""),
+                framework=model_info.get("framework", "pytorch"),
+                description=model_info.get("description"),
+                registry_name=registry_name,
+            )
+        except Exception:
+            raise ValueError(
+                f"Model '{registry_name}' not found. Install it first:\n"
+                f"  openmodelstudio install {registry_name}"
+            )
 
     # ── Feature Store ────────────────────────────────────────────────
 
