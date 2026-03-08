@@ -14,6 +14,7 @@ import {
   BarChart3, Layers, Plug,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 
 interface SearchContextType {
@@ -137,7 +138,12 @@ function SearchOverlay() {
     debounceRef.current = setTimeout(() => {
       api.get<SearchResults>(`/search?q=${encodeURIComponent(query)}&limit=5`)
         .then(setResults)
-        .catch(() => setResults(null))
+        .catch((err) => {
+          setResults(null);
+          if (err instanceof Error && err.message !== "Unauthorized") {
+            toast.error("Search failed");
+          }
+        })
         .finally(() => setLoading(false));
     }, 200);
 
@@ -149,7 +155,7 @@ function SearchOverlay() {
   const hasResults = results && Object.values(results).some((arr) => arr.length > 0);
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
       <CommandInput
         placeholder="Search projects, models, datasets..."
         value={query}

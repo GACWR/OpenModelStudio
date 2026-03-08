@@ -41,26 +41,44 @@ pub async fn register_model(
     Json(req): Json<SdkRegisterModelRequest>,
 ) -> AppResult<Json<SdkRegisterModelResponse>> {
     let framework = req.framework.unwrap_or_else(|| "pytorch".into());
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
     let workspace_id: Option<Uuid> = None;
 
-    // Check if a model with the same name (or registry_name) already exists in this project
+    // Check if a model with the same name (or registry_name) already exists
     let existing: Option<crate::models::model::Model> = if req.registry_name.is_some() {
-        sqlx::query_as(
-            "SELECT * FROM models WHERE registry_name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
-        )
-        .bind(&req.registry_name)
-        .bind(project_id)
-        .fetch_optional(&state.db)
-        .await?
+        if let Some(pid) = project_id {
+            sqlx::query_as(
+                "SELECT * FROM models WHERE registry_name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+            )
+            .bind(&req.registry_name)
+            .bind(pid)
+            .fetch_optional(&state.db)
+            .await?
+        } else {
+            sqlx::query_as(
+                "SELECT * FROM models WHERE registry_name = $1 AND project_id IS NULL ORDER BY version DESC LIMIT 1"
+            )
+            .bind(&req.registry_name)
+            .fetch_optional(&state.db)
+            .await?
+        }
     } else {
-        sqlx::query_as(
-            "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
-        )
-        .bind(&req.name)
-        .bind(project_id)
-        .fetch_optional(&state.db)
-        .await?
+        if let Some(pid) = project_id {
+            sqlx::query_as(
+                "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+            )
+            .bind(&req.name)
+            .bind(pid)
+            .fetch_optional(&state.db)
+            .await?
+        } else {
+            sqlx::query_as(
+                "SELECT * FROM models WHERE name = $1 AND project_id IS NULL ORDER BY version DESC LIMIT 1"
+            )
+            .bind(&req.name)
+            .fetch_optional(&state.db)
+            .await?
+        }
     };
 
     let from_registry = req.registry_name.is_some();
@@ -351,7 +369,7 @@ pub async fn create_dataset(
 
     let dataset_id = Uuid::new_v4();
     let format = req.format.unwrap_or_else(|| "csv".into());
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
 
     // Decode base64
     let bytes = base64::engine::general_purpose::STANDARD
@@ -592,12 +610,12 @@ pub async fn create_features(
     AuthUser(claims): AuthUser,
     Json(req): Json<SdkCreateFeaturesRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
     let entity = req.entity.unwrap_or_else(|| "default".into());
 
     // Create or find feature group
     let group_id: Uuid = match sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM feature_groups WHERE name = $1 AND project_id = $2"
+        "SELECT id FROM feature_groups WHERE name = $1 AND (project_id = $2 OR ($2::uuid IS NULL AND project_id IS NULL))"
     )
     .bind(&req.group_name)
     .bind(project_id)
@@ -708,7 +726,7 @@ pub async fn create_hyperparameters(
     Json(req): Json<CreateHpSetRequest>,
 ) -> AppResult<Json<HyperparameterSet>> {
     let id = Uuid::new_v4();
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
 
     let hp: HyperparameterSet = sqlx::query_as(
         "INSERT INTO hyperparameter_sets (id, project_id, name, description, parameters, model_id, created_by, created_at, updated_at)
@@ -1117,7 +1135,7 @@ pub async fn create_pipeline(
     Json(req): Json<CreatePipelineRequest>,
 ) -> AppResult<Json<Pipeline>> {
     let pipeline_id = Uuid::new_v4();
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
 
     let pipeline: Pipeline = sqlx::query_as(
         "INSERT INTO pipelines (id, project_id, name, description, status, created_by, created_at, updated_at)
