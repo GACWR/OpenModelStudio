@@ -60,7 +60,8 @@ def update_job_status(conn, job_id, status, error_message=None, progress=None):
     with conn.cursor() as cur:
         if status == "running":
             cur.execute(
-                "UPDATE jobs SET status = 'running', started_at = NOW(), "
+                "UPDATE jobs SET status = 'running', "
+                "started_at = COALESCE(started_at, NOW()), "
                 "updated_at = NOW() WHERE id = %s",
                 (job_id,),
             )

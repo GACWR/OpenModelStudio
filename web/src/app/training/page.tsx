@@ -58,9 +58,12 @@ function timeSince(date: string | null): string {
 function duration(start: string | null, end: string | null): string {
   if (!start) return "—";
   const endTime = end ? new Date(end).getTime() : Date.now();
-  const diff = endTime - new Date(start).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m`;
+  const diff = Math.max(0, endTime - new Date(start).getTime());
+  const totalSec = Math.floor(diff / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  if (mins < 60) return `${mins}m ${secs}s`;
   const hrs = Math.floor(mins / 60);
   return `${hrs}h ${mins % 60}m`;
 }
@@ -92,7 +95,8 @@ const statusColors: Record<string, string> = {
 
 export default function TrainingPage() {
   const { selectedProjectId } = useProjectFilter();
-  const [jobs, setJobs] = useState<TrainingJob[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [rawJobs, setRawJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stopJobId, setStopJobId] = useState<string | null>(null);
@@ -101,20 +105,33 @@ export default function TrainingPage() {
   const [newJobTier, setNewJobTier] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [models, setModels] = useState<{ id: string; name: string; framework: string }[]>([]);
+  const [, setTick] = useState(0); // force re-render for live durations
 
-  const fetchJobs = () => {
-    setLoading(true);
-    setError(null);
+  const fetchJobs = (initial = false) => {
+    if (initial) { setLoading(true); setError(null); }
     api.getFiltered<any[]>("/training/jobs", selectedProjectId)
-      .then((data) => setJobs(data.map(mapJob)))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load training jobs"))
-      .finally(() => setLoading(false));
+      .then((data) => setRawJobs(data))
+      .catch((err) => { if (initial) setError(err instanceof Error ? err.message : "Failed to load training jobs"); })
+      .finally(() => { if (initial) setLoading(false); });
   };
 
+  // Map raw jobs on every render so Date.now() stays fresh for running-job durations
+  const jobs = rawJobs.map(mapJob);
+
   useEffect(() => {
-    fetchJobs();
+    fetchJobs(true);
     api.getFiltered<{ id: string; name: string; framework: string }[]>("/models", selectedProjectId).then(setModels).catch(() => {});
   }, [selectedProjectId]);
+
+  // Poll every 5s when there are active jobs + tick every second for live durations
+  const hasActiveJobs = rawJobs.some((j: any) => j.status === "running" || j.status === "pending");
+
+  useEffect(() => {
+    if (!hasActiveJobs) return;
+    const poll = setInterval(() => fetchJobs(false), 5000);
+    const tick = setInterval(() => setTick(t => t + 1), 1000);
+    return () => { clearInterval(poll); clearInterval(tick); };
+  }, [hasActiveJobs, selectedProjectId]);
 
   const handleNewJob = async () => {
     if (!newModelId) { toast.error("Select a model"); return; }

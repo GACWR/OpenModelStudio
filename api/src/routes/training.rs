@@ -194,6 +194,17 @@ pub async fn post_metrics(
 
     // Check for training completion (progress >= 100)
     if event.metric_name == "progress" && event.value >= 100.0 {
+        // Mark job as completed with final timestamp
+        sqlx::query(
+            "UPDATE jobs SET status = 'completed', completed_at = COALESCE(completed_at, NOW()), updated_at = NOW() WHERE id = $1 AND status != 'completed'"
+        )
+        .bind(job_id)
+        .execute(&state.db)
+        .await
+        .ok();
+
+        state.metrics.remove(&job_id).await;
+
         // Look up the job owner to notify them
         let owner: Option<(Uuid,)> = sqlx::query_as("SELECT created_by FROM jobs WHERE id = $1")
             .bind(job_id)
