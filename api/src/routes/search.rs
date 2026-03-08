@@ -51,7 +51,7 @@ pub async fn search(
     let pattern = format!("%{}%", query.q);
     let cat = query.category.as_deref();
 
-    let should = |name: &str| cat.map_or(true, |c| c == name);
+    let should = |name: &str| cat.is_none_or(|c| c == name);
 
     // Projects: name, description, tags::text, stage
     let projects = if should("projects") {

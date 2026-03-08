@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openmodelstudio"
-version = "0.0.1"
+version = "0.0.2"
 description = "OpenModelStudio SDK — register models, log metrics, and manage artifacts from JupyterLab workspaces"
 readme = "README.md"
 requires-python = ">=3.9"
