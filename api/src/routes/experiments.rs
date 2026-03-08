@@ -91,7 +91,7 @@ pub async fn add_run(
     .bind(&req.metrics)
     .fetch_one(&state.db)
     .await?;
-    notify(&state.db, claims.sub, "Experiment Run Logged", &format!("New run added to experiment"), NotifyType::Info, Some(&format!("/experiments/{}", experiment_id))).await;
+    notify(&state.db, claims.sub, "Experiment Run Logged", "New run added to experiment", NotifyType::Info, Some(&format!("/experiments/{}", experiment_id))).await;
     Ok(Json(run))
 }
 

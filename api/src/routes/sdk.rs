@@ -62,23 +62,21 @@ pub async fn register_model(
             .fetch_optional(&state.db)
             .await?
         }
+    } else if let Some(pid) = project_id {
+        sqlx::query_as(
+            "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+        )
+        .bind(&req.name)
+        .bind(pid)
+        .fetch_optional(&state.db)
+        .await?
     } else {
-        if let Some(pid) = project_id {
-            sqlx::query_as(
-                "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
-            )
-            .bind(&req.name)
-            .bind(pid)
-            .fetch_optional(&state.db)
-            .await?
-        } else {
-            sqlx::query_as(
-                "SELECT * FROM models WHERE name = $1 AND project_id IS NULL ORDER BY version DESC LIMIT 1"
-            )
-            .bind(&req.name)
-            .fetch_optional(&state.db)
-            .await?
-        }
+        sqlx::query_as(
+            "SELECT * FROM models WHERE name = $1 AND project_id IS NULL ORDER BY version DESC LIMIT 1"
+        )
+        .bind(&req.name)
+        .fetch_optional(&state.db)
+        .await?
     };
 
     let from_registry = req.registry_name.is_some();
@@ -133,8 +131,10 @@ pub async fn register_model(
         .bind(workspace_id)
         .bind(if from_registry {
             if new_version == 1 { "Installed from registry" } else { "Updated from registry" }
+        } else if new_version == 1 {
+            "Initial version from workspace"
         } else {
-            if new_version == 1 { "Initial version from workspace" } else { "Updated from workspace" }
+            "Updated from workspace"
         })
         .execute(&state.db)
         .await?;
