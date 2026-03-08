@@ -283,22 +283,25 @@ function generate() {
   pill(EX, E2y, EW, EH, "LLM Providers", C.slate, "OpenAI / Anthropic / Ollama");
   pill(EX, E3y, EW, EH, "S3 / MinIO", C.slate, "Artifact Storage");
 
-  // ── External → API (horizontal elbows into left edge of API) ──
+  // ── External → API ──
+  // Route all external arrows BELOW the Frontend row so no edges cross nodes.
+  // Each path: right from ext box → down to a channel below services → right to API bottom edge
   const extRight = EX + EW;
   const apiLeft = s2x;
+  const channelX = s1x - 8; // just left of Frontend box
+  const underRow = R1 + sH; // bottom of service boxes
 
-  // GitHub → API (straight horizontal — same Y as API row)
-  lineH(extRight, E1y + EH / 2, apiLeft, "Model fetch", { color: C.slate.border, arrow: "both" });
+  // GitHub → API: right to channel, down under Frontend, right to API bottom
+  p.push(`<path d="M${extRight},${E1y + EH / 2} H${channelX} V${underRow + 6} H${a_cx - 15} V${underRow}" fill="none" stroke="${C.slate.border}" stroke-width="1" marker-start="url(#ah-r)" marker-end="url(#ah)"/>`);
+  txt((channelX + a_cx) / 2, underRow + 18, "Model fetch", { size: 8, fill: TEXT_DIM });
 
-  // LLM → API (elbow: goes right, up to API mid, then right into API)
-  const llmMidX = extRight + 30;
-  p.push(`<path d="M${extRight},${E2y + EH / 2} H${llmMidX} V${R1 + 20} H${apiLeft}" fill="none" stroke="${C.slate.border}" stroke-width="1" marker-start="url(#ah-r)" marker-end="url(#ah)"/>`);
-  txt(llmMidX + 4, R1 + 16, "HTTPS", { size: 8, fill: TEXT_DIM, anchor: "start" });
+  // LLM → API: right to channel, down under Frontend, right to API bottom
+  p.push(`<path d="M${extRight},${E2y + EH / 2} H${channelX - 8} V${underRow + 14} H${a_cx} V${underRow}" fill="none" stroke="${C.slate.border}" stroke-width="1" marker-start="url(#ah-r)" marker-end="url(#ah)"/>`);
+  txt((channelX + a_cx) / 2, underRow + 26, "HTTPS", { size: 8, fill: TEXT_DIM });
 
-  // S3 → API (elbow: goes right, up to API bottom area, then right into API)
-  const s3MidX = extRight + 50;
-  p.push(`<path d="M${extRight},${E3y + EH / 2} H${s3MidX} V${R1 + 40} H${apiLeft}" fill="none" stroke="${C.slate.border}" stroke-width="1" marker-start="url(#ah-r)" marker-end="url(#ah)"/>`);
-  txt(s3MidX + 4, R1 + 36, "Presigned URLs", { size: 8, fill: TEXT_DIM, anchor: "start" });
+  // S3 → API: right to channel, down under Frontend, right to API bottom
+  p.push(`<path d="M${extRight},${E3y + EH / 2} H${channelX - 16} V${underRow + 22} H${a_cx + 15} V${underRow}" fill="none" stroke="${C.slate.border}" stroke-width="1" marker-start="url(#ah-r)" marker-end="url(#ah)"/>`);
+  txt((channelX + a_cx) / 2, underRow + 34, "Presigned URLs", { size: 8, fill: TEXT_DIM });
 
   // ═══════════════════════════════════════════════════════════════════
   // LEGEND (bottom)
