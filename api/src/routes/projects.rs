@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::project::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 pub async fn list(
@@ -53,6 +54,7 @@ pub async fn create(
     .bind(&visibility)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Project Created", &format!("Project '{}' has been created", project.name), NotifyType::Success, Some(&format!("/projects/{}", project.id))).await;
     Ok(Json(project))
 }
 
@@ -107,6 +109,7 @@ pub async fn add_collaborator(
     .bind(&req.role)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, req.user_id, "Added to Project", &format!("You've been added as {} to a project", req.role), NotifyType::Info, Some(&format!("/projects/{}", project_id))).await;
     Ok(Json(collab))
 }
 

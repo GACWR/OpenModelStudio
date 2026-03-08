@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage } from "@/components/shared/animated-page";
@@ -12,28 +12,38 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { Search as SearchIcon, FolderKanban, Brain, Database, FlaskConical, Zap, Clock, ArrowRight } from "lucide-react";
+import {
+  Search as SearchIcon, FolderKanban, Brain, Database, FlaskConical,
+  Zap, Monitor, BarChart3, Layers, Plug, Clock, ArrowRight,
+} from "lucide-react";
 
 const categories = [
   { key: "projects", label: "Projects", icon: FolderKanban, color: "#ffffff", bg: "bg-white/10" },
   { key: "models", label: "Models", icon: Brain, color: "#d4d4d4", bg: "bg-white/8" },
   { key: "datasets", label: "Datasets", icon: Database, color: "#10b981", bg: "bg-emerald-500/10" },
   { key: "experiments", label: "Experiments", icon: FlaskConical, color: "#f59e0b", bg: "bg-amber-500/10" },
-  { key: "training", label: "Training Jobs", icon: Zap, color: "#a3a3a3", bg: "bg-white/8" },
+  { key: "training", label: "Training", icon: Zap, color: "#a3a3a3", bg: "bg-white/8" },
+  { key: "workspaces", label: "Workspaces", icon: Monitor, color: "#8b5cf6", bg: "bg-violet-500/10" },
+  { key: "features", label: "Features", icon: Layers, color: "#06b6d4", bg: "bg-cyan-500/10" },
+  { key: "visualizations", label: "Visualizations", icon: BarChart3, color: "#ec4899", bg: "bg-pink-500/10" },
+  { key: "data_sources", label: "Data Sources", icon: Plug, color: "#f97316", bg: "bg-orange-500/10" },
 ];
 
-type SearchResult = { id: string; name: string; desc: string; owner: string; updated: string; href: string };
-type SearchResults = Record<string, SearchResult[]>;
+interface SearchItem {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  href: string;
+  icon_hint: string | null;
+  status: string | null;
+  updated_at: string | null;
+}
 
-const emptyResults: SearchResults = {
-  projects: [],
-  models: [],
-  datasets: [],
-  experiments: [],
-  training: [],
-};
+type SearchResults = Record<string, SearchItem[]>;
 
-// Recent searches from localStorage
+const emptyResults: SearchResults = Object.fromEntries(categories.map((c) => [c.key, []]));
+
 function getRecentSearches(): string[] {
   if (typeof window === "undefined") return [];
   try { return JSON.parse(localStorage.getItem("oms_recent_searches") || "[]"); } catch { return []; }
@@ -46,12 +56,11 @@ function addRecentSearch(q: string) {
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const _router = useRouter();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
   const [focused, setFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResults>(emptyResults);
-  const [_searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   useEffect(() => { setRecentSearches(getRecentSearches()); }, []);
@@ -64,43 +73,21 @@ function SearchContent() {
     setSearching(true);
     addRecentSearch(q);
     setRecentSearches(getRecentSearches());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<any>(`/search?q=${encodeURIComponent(q)}`)
+    api.get<SearchResults>(`/search?q=${encodeURIComponent(q)}`)
       .then((data) => {
-        const results: SearchResults = { projects: [], models: [], datasets: [], experiments: [], training: [] };
-        if (Array.isArray(data)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          data.forEach((item: any) => {
-            const category = item.type || item.category || "projects";
-            const mapped: SearchResult = {
-              id: item.id || "",
-              name: item.name || item.title || "",
-              desc: item.description || item.desc || "",
-              owner: item.owner || "Unknown",
-              updated: item.updated_at ? new Date(item.updated_at).toLocaleDateString() : "—",
-              href: item.href || `/${category}/${item.id}`,
-            };
-            if (results[category]) results[category].push(mapped);
-            else results.projects.push(mapped);
-          });
-        } else if (data && typeof data === "object") {
-          Object.keys(results).forEach((key) => {
-            if (Array.isArray(data[key])) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              results[key] = data[key].map((item: any) => ({
-                id: item.id || "",
-                name: item.name || item.title || "",
-                desc: item.description || item.desc || "",
-                owner: item.owner || "Unknown",
-                updated: item.updated_at ? new Date(item.updated_at).toLocaleDateString() : "—",
-                href: item.href || `/${key}/${item.id}`,
-              }));
-            }
-          });
+        const results: SearchResults = { ...emptyResults };
+        // Map backend response to our format
+        for (const cat of categories) {
+          if (Array.isArray(data[cat.key])) {
+            results[cat.key] = data[cat.key];
+          }
         }
         setSearchResults(results);
       })
-      .catch((err) => { toast.error(err instanceof Error ? err.message : "Search failed"); setSearchResults(emptyResults); })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Search failed");
+        setSearchResults(emptyResults);
+      })
       .finally(() => setSearching(false));
   }, []);
 
@@ -109,9 +96,7 @@ function SearchContent() {
     return () => clearTimeout(timer);
   }, [query, performSearch]);
 
-  const filteredResults = searchResults;
-
-  const totalResults = Object.values(filteredResults).reduce((a, b) => a + b.length, 0);
+  const totalResults = Object.values(searchResults).reduce((a, b) => a + b.length, 0);
 
   return (
     <AppShell>
@@ -128,7 +113,7 @@ function SearchContent() {
               Search Everything
             </span>
           </h1>
-          <p className="text-muted-foreground">Find projects, models, datasets, and experiments</p>
+          <p className="text-muted-foreground">Find projects, models, datasets, experiments, and more</p>
         </motion.div>
 
         {/* Search Input */}
@@ -141,7 +126,13 @@ function SearchContent() {
           <div className={`relative rounded-2xl transition-all duration-500 ${
             focused ? "shadow-[0_0_40px_rgba(255,255,255,0.08)]" : ""
           }`}>
-            <SearchIcon className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            {searching ? (
+              <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              </div>
+            ) : (
+              <SearchIcon className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            )}
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -192,12 +183,12 @@ function SearchContent() {
             <p className="text-sm text-muted-foreground mb-4">
               {totalResults} results for &quot;{query}&quot;
             </p>
-            {totalResults === 0 ? (
+            {totalResults === 0 && !searching ? (
               <EmptyState icon={SearchIcon} title="No results found" description={`No matches for "${query}". Try different keywords.`} />
             ) : (
               <div className="space-y-6">
                 {categories.map((cat) => {
-                  const results = filteredResults[cat.key];
+                  const results = searchResults[cat.key];
                   if (!results || results.length === 0) return null;
                   const Icon = cat.icon;
                   return (
@@ -224,15 +215,27 @@ function SearchContent() {
                             <Link href={r.href}>
                               <GlassCard className="p-4 cursor-pointer group" hoverScale>
                                 <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="font-medium text-foreground group-hover:text-white transition-colors">{r.name}</p>
-                                    <p className="mt-0.5 text-sm text-muted-foreground">{r.desc}</p>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <div className="text-right text-xs text-muted-foreground">
-                                      <p>{r.owner}</p>
-                                      <p>{r.updated}</p>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium text-foreground group-hover:text-white transition-colors truncate">
+                                        {r.name}
+                                      </p>
+                                      {r.status && (
+                                        <Badge variant="outline" className="text-[10px] h-4 shrink-0">
+                                          {r.status}
+                                        </Badge>
+                                      )}
                                     </div>
+                                    {r.description && (
+                                      <p className="mt-0.5 text-sm text-muted-foreground truncate">{r.description}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                                    {r.updated_at && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {new Date(r.updated_at).toLocaleDateString()}
+                                      </span>
+                                    )}
                                     <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-white transition-colors" />
                                   </div>
                                 </div>
@@ -258,7 +261,7 @@ function SearchContent() {
             className="mx-auto max-w-2xl"
           >
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Browse by Category</p>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
               {categories.map((cat, i) => {
                 const Icon = cat.icon;
                 return (

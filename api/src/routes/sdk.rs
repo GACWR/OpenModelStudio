@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::error::{AppError, AppResult};
 use crate::middleware::auth::AuthUser;
 use crate::models::dataset::Dataset;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 /// Local dataset storage root (PVC mounted in the API pod).
@@ -121,6 +122,7 @@ pub async fn register_model(
         .await?;
     }
 
+    notify(&state.db, claims.sub, "Model Registered", &format!("Model '{}' v{} registered via SDK", req.name, new_version), NotifyType::Success, Some(&format!("/models/{}", model_id))).await;
     Ok(Json(SdkRegisterModelResponse {
         model_id,
         name: req.name,
@@ -197,6 +199,7 @@ pub async fn publish_version(
             .await?;
     }
 
+    notify(&state.db, claims.sub, "Version Published", &format!("Model version {} published", new_version), NotifyType::Success, Some(&format!("/models/{}", req.model_id))).await;
     Ok(Json(SdkPublishVersionResponse {
         version_id,
         version: new_version,
@@ -386,6 +389,7 @@ pub async fn create_dataset(
     .fetch_one(&state.db)
     .await?;
 
+    notify(&state.db, claims.sub, "Dataset Created", &format!("Dataset '{}' created via SDK", dataset.name), NotifyType::Success, Some(&format!("/datasets/{}", dataset.id))).await;
     Ok(Json(dataset))
 }
 
@@ -929,6 +933,7 @@ pub async fn start_training(
         .fetch_one(&state.db)
         .await?;
 
+    notify(&state.db, claims.sub, "Training Started", &format!("Training started for '{}' via SDK", model.name), NotifyType::Info, Some(&format!("/training/{}", job_id))).await;
     Ok(Json(job))
 }
 
@@ -994,6 +999,7 @@ pub async fn start_inference(
         .fetch_one(&state.db)
         .await?;
 
+    notify(&state.db, claims.sub, "Inference Started", &format!("Inference started for '{}' via SDK", model.name), NotifyType::Info, Some(&format!("/inference/{}", job_id))).await;
     Ok(Json(job))
 }
 
@@ -1121,6 +1127,7 @@ pub async fn create_pipeline(
         .await?;
     }
 
+    notify(&state.db, claims.sub, "Pipeline Created", &format!("Pipeline '{}' created via SDK", pipeline.name), NotifyType::Info, None).await;
     Ok(Json(pipeline))
 }
 
@@ -1309,6 +1316,7 @@ pub async fn run_pipeline(
             .await;
     });
 
+    notify(&state.db, claims.sub, "Pipeline Started", "Pipeline execution has started", NotifyType::Info, None).await;
     Ok(Json(serde_json::json!({
         "pipeline_id": id,
         "status": "running",
@@ -1515,6 +1523,7 @@ pub async fn create_sweep(
             .await;
     });
 
+    notify(&state.db, claims.sub, "Sweep Started", &format!("Hyperparameter sweep '{}' started ({} trials)", req.name, max_trials), NotifyType::Info, None).await;
     Ok(Json(serde_json::json!({
         "sweep_id": sweep.id,
         "experiment_id": experiment_id,

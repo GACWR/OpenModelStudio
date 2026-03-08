@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::error::{AppError, AppResult};
 use crate::middleware::auth::AuthUser;
 use crate::models::dataset::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 const DATASETS_DIR: &str = "/data/datasets";
@@ -99,6 +100,7 @@ pub async fn create(
     .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Dataset Created", &format!("Dataset '{}' ({}) uploaded", dataset.name, dataset.format), NotifyType::Success, Some(&format!("/datasets/{}", dataset.id))).await;
     Ok(Json(dataset))
 }
 

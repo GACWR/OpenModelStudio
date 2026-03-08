@@ -9,6 +9,7 @@ use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::job::JobStatus;
 use crate::models::model::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 /// GET /models/registry-status?names=iris-svm,mnist-cnn
@@ -103,6 +104,7 @@ pub async fn create(
     .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Model Created", &format!("Model '{}' created ({})", model.name, model.framework), NotifyType::Success, Some(&format!("/models/{}", model.id))).await;
     Ok(Json(model))
 }
 

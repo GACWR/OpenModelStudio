@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/providers/auth-provider";
 
 interface Project {
   id: string;
@@ -32,12 +33,18 @@ export function ProjectFilterProvider({ children }: { children: React.ReactNode 
     if (stored && stored !== "null") setSelectedState(stored);
   }, []);
 
+  const { user } = useAuth();
+
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     api.get<Project[]>("/projects")
       .then(setProjects)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const setSelectedProjectId = useCallback((id: string | null) => {
     setSelectedState(id);

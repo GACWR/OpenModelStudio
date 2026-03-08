@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::experiment::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 pub async fn list(
@@ -69,12 +70,13 @@ pub async fn create(
     .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Experiment Created", &format!("Experiment '{}' created", exp.name), NotifyType::Info, Some(&format!("/experiments/{}", exp.id))).await;
     Ok(Json(exp))
 }
 
 pub async fn add_run(
     State(state): State<AppState>,
-    AuthUser(_claims): AuthUser,
+    AuthUser(claims): AuthUser,
     Path(experiment_id): Path<Uuid>,
     Json(req): Json<AddRunRequest>,
 ) -> AppResult<Json<ExperimentRun>> {
@@ -89,6 +91,7 @@ pub async fn add_run(
     .bind(&req.metrics)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Experiment Run Logged", &format!("New run added to experiment"), NotifyType::Info, Some(&format!("/experiments/{}", experiment_id))).await;
     Ok(Json(run))
 }
 

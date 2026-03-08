@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 use crate::middleware::auth::AuthUser;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -193,13 +194,14 @@ pub async fn delete(
 
 pub async fn publish(
     State(state): State<AppState>,
-    AuthUser(_claims): AuthUser,
+    AuthUser(claims): AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     sqlx::query("UPDATE visualizations SET published = true, updated_at = now() WHERE id = $1")
         .bind(id)
         .execute(&state.db)
         .await?;
+    notify(&state.db, claims.sub, "Visualization Published", "Visualization has been published", NotifyType::Success, Some(&format!("/visualizations/{}", id))).await;
     Ok(Json(serde_json::json!({"published": true})))
 }
 

@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::job::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 pub async fn run(
@@ -72,6 +73,7 @@ pub async fn run(
         .fetch_one(&state.db)
         .await?;
 
+    notify(&state.db, claims.sub, "Inference Started", &format!("Inference job started for model"), NotifyType::Info, Some(&format!("/inference/{}", job_id))).await;
     Ok(Json(job))
 }
 

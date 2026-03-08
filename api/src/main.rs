@@ -153,7 +153,9 @@ async fn main() {
         .route("/features/{id}", delete(routes::features::delete))
         // Notifications
         .route("/notifications", get(routes::notifications::list))
+        .route("/notifications/unread-count", get(routes::notifications::unread_count))
         .route("/notifications/read", post(routes::notifications::mark_read))
+        .route("/notifications/read-all", post(routes::notifications::mark_all_read))
         // Search
         .route("/search", get(routes::search::search))
         // LLM

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search, ChevronRight, LogOut, User as UserIcon, Settings, Shield } from "lucide-react";
+import { Search, ChevronRight, LogOut, User as UserIcon, Settings, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,10 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
 import { useSearch } from "@/components/shared/search-overlay";
 import { ProjectFilter } from "@/components/shared/project-filter";
+import { NotificationPanel } from "@/components/shared/notification-panel";
 import Link from "next/link";
 
 function getBreadcrumbs(pathname: string) {
@@ -71,16 +71,7 @@ export function Topbar() {
           </kbd>
         </Button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative text-muted-foreground hover:text-foreground"
-        >
-          <Bell className="h-4.5 w-4.5" />
-          <Badge className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white p-0 text-[9px] text-black">
-            3
-          </Badge>
-        </Button>
+        <NotificationPanel />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
