@@ -156,27 +156,7 @@ This will:
 
 ## Architecture
 
-```
-                          Kind Cluster
-
-  +-----------+  +----------+  +-------------+  +------------+
-  | Frontend  |  | Rust API |  | PostGraphile|  | JupyterHub |
-  | Next.js   |  |  Axum    |  |  GraphQL    |  |            |
-  | :31000    |  |  :31001  |  |  :31002     |  |  :31003    |
-  +-----+-----+  +----+-----+  +------+------+  +------+-----+
-        |              |               |                |
-        |         +----+---------------+----+           |
-        |         |     PostgreSQL 16       |           |
-        |         |       :5432             |           |
-        |         +-------------------------+           |
-        |              |                                |
-        |         +----+-----------+                    |
-        |         | Model Runner   |   +------------+   |
-        |         | Pods (ephemeral|   | User        |   |
-        |         | - Python       |   | Notebook    |   |
-        |         | - Rust         |   | Pods        |   |
-        |         +----------------+   +------------+   |
-```
+![Architecture](docs/diagrams/architecture.svg)
 
 ### Components
 

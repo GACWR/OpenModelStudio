@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620">
+<defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="rgba(255,255,255,0.3)"/>
+    </marker>
+    <marker id="arrowhead-rev" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M8,0 L0,3 L8,6 Z" fill="rgba(255,255,255,0.3)"/>
+    </marker>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+<rect width="1200" height="620" fill="#0d1117" rx="0"/>
+<text x="600" y="32" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="18" font-weight="700" fill="#e6edf3" text-anchor="middle">OpenModelStudio — System Architecture</text>
+<text x="40" y="62" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">CLIENTS</text>
+<rect x="440" y="52" width="120" height="38" rx="6" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" /><text x="500" y="71" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">Browser</text>
+<rect x="600" y="52" width="120" height="38" rx="6" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" /><text x="660" y="71" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">Python SDK</text>
+<rect x="760" y="52" width="120" height="38" rx="6" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" /><text x="820" y="71" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">CLI</text>
+<text x="40" y="141" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">EXTERNAL</text>
+<rect x="40" y="155" width="130" height="55" rx="6" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" /><text x="105" y="178.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">GitHub Registry</text><text x="105" y="192.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Model Registry</text>
+<rect x="40" y="222" width="130" height="55" rx="6" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" /><text x="105" y="245.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">LLM Providers</text><text x="105" y="259.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">OpenAI / Anthropic</text>
+<rect x="40" y="289" width="130" height="55" rx="6" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" /><text x="105" y="312.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">S3 / MinIO</text><text x="105" y="326.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Artifact Storage</text>
+<rect x="200" y="108" width="960" height="460" rx="16" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" />
+<text x="216" y="128" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="11" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">Kubernetes Cluster</text>
+<text x="1100" y="128" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">namespace: openmodelstudio</text>
+<text x="220" y="144" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">CORE SERVICES</text>
+<rect x="220" y="148" width="218" height="62" rx="8" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.4)" stroke-width="1.2" /><text x="329" y="171" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="13" font-weight="600" fill="#a78bfa" text-anchor="middle">Frontend</text><text x="329" y="186" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">Next.js + shadcn/ui</text><text x="329" y="201" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">:31000</text>
+<rect x="454" y="148" width="218" height="62" rx="8" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.4)" stroke-width="1.2" /><text x="563" y="171" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="13" font-weight="600" fill="#60a5fa" text-anchor="middle">Rust API</text><text x="563" y="186" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">Axum + SQLx</text><text x="563" y="201" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">:31001</text>
+<rect x="688" y="148" width="218" height="62" rx="8" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.4)" stroke-width="1.2" /><text x="797" y="171" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="13" font-weight="600" fill="#60a5fa" text-anchor="middle">PostGraphile</text><text x="797" y="186" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">Auto-gen GraphQL</text><text x="797" y="201" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">:31002</text>
+<rect x="922" y="148" width="218" height="62" rx="8" fill="rgba(16,185,129,0.10)" stroke="rgba(16,185,129,0.35)" stroke-width="1.2" /><text x="1031" y="171" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="13" font-weight="600" fill="#34d399" text-anchor="middle">JupyterHub</text><text x="1031" y="186" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">Workspace Mgmt</text><text x="1031" y="201" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">:31003</text>
+<line x1="500" y1="90" x2="329" y2="148" stroke="rgba(139,92,246,0.4)" stroke-width="1.2" marker-end="url(#arrowhead)"/><text x="414.5" y="113" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="middle">HTTP</text>
+<line x1="660" y1="90" x2="563" y2="148" stroke="rgba(59,130,246,0.4)" stroke-width="1.2" marker-end="url(#arrowhead)"/><text x="611.5" y="113" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="middle">REST</text>
+<line x1="820" y1="90" x2="583" y2="148" stroke="rgba(59,130,246,0.4)" stroke-width="1.2" marker-end="url(#arrowhead)"/><text x="701.5" y="113" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="middle">REST</text>
+<line x1="438" y1="179" x2="454" y2="179" stroke="rgba(139,92,246,0.3)" stroke-width="1.2" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/><text x="446" y="173" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="middle">REST + SSE</text>
+<line x1="438" y1="191" x2="688" y2="191" stroke="rgba(96,165,250,0.2)" stroke-width="1.2" stroke-dasharray="4,3" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/>
+<text x="672" y="205" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">GraphQL</text>
+<text x="220" y="256" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">DATA LAYER</text>
+<rect x="550" y="260" width="260" height="60" rx="8" fill="rgba(20,184,166,0.12)" stroke="rgba(20,184,166,0.4)" stroke-width="1.2" />
+<text x="680" y="280" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="14" font-weight="600" fill="#2dd4bf" text-anchor="middle">PostgreSQL 16</text>
+<text x="680" y="296" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">27 tables · System of Record</text>
+<text x="680" y="310" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">:5432</text>
+<line x1="563" y1="210" x2="660" y2="260" stroke="rgba(20,184,166,0.4)" stroke-width="1.2" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/><text x="611.5" y="229" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="middle">SQL</text>
+<line x1="797" y1="210" x2="700" y2="260" stroke="rgba(20,184,166,0.4)" stroke-width="1.2" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/><text x="748.5" y="229" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="middle">SQL</text>
+<text x="220" y="366" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">EPHEMERAL PODS</text>
+<rect x="220" y="370" width="448" height="72" rx="8" fill="rgba(245,158,11,0.10)" stroke="rgba(245,158,11,0.35)" stroke-width="1.2" stroke-dasharray="6,3"/>
+<text x="444" y="388" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="#fbbf24" text-anchor="middle">Model Runner Pods</text>
+<text x="444" y="404" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">Ephemeral K8s Jobs</text>
+<text x="444" y="420" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Python (PyTorch/sklearn) · Rust (tch-rs)</text>
+<text x="444" y="434" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">oms-job-*</text>
+<rect x="692" y="370" width="448" height="72" rx="8" fill="rgba(16,185,129,0.10)" stroke="rgba(16,185,129,0.35)" stroke-width="1.2" stroke-dasharray="6,3"/>
+<text x="916" y="388" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="#34d399" text-anchor="middle">Workspace Pods</text>
+<text x="916" y="404" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="middle">Per-User JupyterLab</text>
+<text x="916" y="420" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">SDK + Tutorial Notebooks + Datasets</text>
+<text x="916" y="434" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.35)" text-anchor="middle">oms-ws-*</text>
+<line x1="563" y1="210" x2="444" y2="370" stroke="rgba(245,158,11,0.35)" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/>
+<text x="523" y="320" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="end">Job orchestration</text>
+<line x1="474" y1="370" x2="593" y2="210" stroke="rgba(245,158,11,0.35)" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+<text x="623" y="320" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="start">Metrics + Logs (HTTP)</text>
+<line x1="1031" y1="210" x2="916" y2="370" stroke="rgba(16,185,129,0.35)" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/><text x="981.5" y="290" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="start">Pod spawning</text>
+<line x1="886" y1="370" x2="623" y2="210" stroke="rgba(59,130,246,0.4)" stroke-width="1.2" stroke-dasharray="4,3" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/>
+<text x="702" y="330" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="start">SDK → REST</text>
+<text x="220" y="478" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" fill="rgba(230,237,243,0.35)" text-anchor="start">PERSISTENT VOLUMES</text>
+<rect x="220" y="482" width="221" height="42" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" />
+<text x="330.5" y="498" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.55)" text-anchor="middle">models-pvc</text>
+<text x="330.5" y="514" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Model Code</text>
+<rect x="453" y="482" width="221" height="42" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" />
+<text x="563.5" y="498" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.55)" text-anchor="middle">datasets-pvc</text>
+<text x="563.5" y="514" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Training Data</text>
+<rect x="686" y="482" width="221" height="42" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" />
+<text x="796.5" y="498" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.55)" text-anchor="middle">artifacts-pvc</text>
+<text x="796.5" y="514" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Job Outputs</text>
+<rect x="919" y="482" width="221" height="42" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" />
+<text x="1029.5" y="498" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="rgba(230,237,243,0.55)" text-anchor="middle">postgres-data</text>
+<text x="1029.5" y="514" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.35)" text-anchor="middle">Database</text>
+<line x1="170" y1="182.5" x2="454" y2="171" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/>
+<text x="194" y="174.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="start">Model fetch</text>
+<line x1="170" y1="249.5" x2="454" y2="187" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/>
+<text x="194" y="263.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="start">HTTPS</text>
+<line x1="170" y1="316.5" x2="454" y2="220" stroke="rgba(148,163,184,0.25)" stroke-width="1.2" marker-start="url(#arrowhead-rev)" marker-end="url(#arrowhead)"/>
+<text x="194" y="330.5" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="8" font-weight="400" fill="rgba(230,237,243,0.45)" text-anchor="start">Presigned URLs</text>
+<rect x="40" y="582" width="12" height="12" rx="2" fill="rgba(139,92,246,0.12)" stroke="rgba(139,92,246,0.4)" stroke-width="1"/>
+<text x="58" y="592" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="start">Frontend / UI</text>
+<rect x="210" y="582" width="12" height="12" rx="2" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.4)" stroke-width="1"/>
+<text x="228" y="592" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="start">API / Backend</text>
+<rect x="380" y="582" width="12" height="12" rx="2" fill="rgba(20,184,166,0.12)" stroke="rgba(20,184,166,0.4)" stroke-width="1"/>
+<text x="398" y="592" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="start">Data / Storage</text>
+<rect x="550" y="582" width="12" height="12" rx="2" fill="rgba(245,158,11,0.10)" stroke="rgba(245,158,11,0.35)" stroke-width="1"/>
+<text x="568" y="592" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="start">Ephemeral Pods</text>
+<rect x="720" y="582" width="12" height="12" rx="2" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.25)" stroke-width="1"/>
+<text x="738" y="592" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="start">External Services</text>
+<rect x="890" y="582" width="12" height="12" rx="2" fill="rgba(16,185,129,0.10)" stroke="rgba(16,185,129,0.35)" stroke-width="1"/>
+<text x="908" y="592" font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="9" font-weight="400" fill="rgba(230,237,243,0.55)" text-anchor="start">Workspaces</text>
+</svg>
