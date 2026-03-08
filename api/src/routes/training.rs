@@ -14,6 +14,7 @@ use crate::middleware::auth::AuthUser;
 use crate::models::job::*;
 use crate::models::job_log::*;
 use crate::services::metrics::MetricRecord;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 pub async fn start(
@@ -73,18 +74,25 @@ pub async fn start(
         }
     }
 
+    notify(&state.db, claims.sub, "Training Started", &format!("Training job started on {}", hardware_tier), NotifyType::Info, Some(&format!("/training/{}", job_id))).await;
     Ok(Json(job))
 }
 
 pub async fn list_all_jobs(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Job>>> {
-    let jobs: Vec<Job> = sqlx::query_as(
-        "SELECT * FROM jobs ORDER BY created_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let jobs: Vec<Job> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM jobs WHERE project_id = $1 ORDER BY created_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM jobs ORDER BY created_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(jobs))
 }
 
@@ -127,7 +135,7 @@ pub async fn metrics_history(
 
 pub async fn cancel(
     State(state): State<AppState>,
-    AuthUser(_claims): AuthUser,
+    AuthUser(claims): AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<Job>> {
     let job: Job = sqlx::query_as("SELECT * FROM jobs WHERE id = $1")
@@ -152,6 +160,7 @@ pub async fn cancel(
     .await?;
 
     state.metrics.remove(&id).await;
+    notify(&state.db, claims.sub, "Job Cancelled", "Training job has been cancelled", NotifyType::Warning, Some(&format!("/training/{}", id))).await;
     Ok(Json(updated))
 }
 
@@ -181,6 +190,31 @@ pub async fn post_metrics(
     if let Some(epoch) = event.epoch {
         sqlx::query("UPDATE jobs SET epoch_current = $2, updated_at = NOW() WHERE id = $1")
             .bind(job_id).bind(epoch as i32).execute(&state.db).await.ok();
+    }
+
+    // Check for training completion (progress >= 100)
+    if event.metric_name == "progress" && event.value >= 100.0 {
+        // Mark job as completed with final timestamp
+        sqlx::query(
+            "UPDATE jobs SET status = 'completed', completed_at = COALESCE(completed_at, NOW()), updated_at = NOW() WHERE id = $1 AND status != 'completed'"
+        )
+        .bind(job_id)
+        .execute(&state.db)
+        .await
+        .ok();
+
+        state.metrics.remove(&job_id).await;
+
+        // Look up the job owner to notify them
+        let owner: Option<(Uuid,)> = sqlx::query_as("SELECT created_by FROM jobs WHERE id = $1")
+            .bind(job_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+        if let Some((user_id,)) = owner {
+            notify(&state.db, user_id, "Training Complete", "Training job has finished successfully", NotifyType::Success, Some(&format!("/training/{}", job_id))).await;
+        }
     }
 
     state.metrics.publish(&state.db, job_id, event).await

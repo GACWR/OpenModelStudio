@@ -96,6 +96,8 @@ async fn main() {
         .route("/projects/{project_id}/models", get(routes::models::list))
         .route("/models", get(routes::models::list_all))
         .route("/models", post(routes::models::create))
+        .route("/models/registry-status", get(routes::models::registry_status))
+        .route("/models/registry-uninstall", post(routes::models::registry_uninstall))
         .route("/models/{id}", get(routes::models::get))
         .route("/models/{id}", put(routes::models::update))
         .route("/models/{id}", delete(routes::models::delete))
@@ -152,7 +154,9 @@ async fn main() {
         .route("/features/{id}", delete(routes::features::delete))
         // Notifications
         .route("/notifications", get(routes::notifications::list))
+        .route("/notifications/unread-count", get(routes::notifications::unread_count))
         .route("/notifications/read", post(routes::notifications::mark_read))
+        .route("/notifications/read-all", post(routes::notifications::mark_all_read))
         // Search
         .route("/search", get(routes::search::search))
         // LLM
@@ -178,6 +182,7 @@ async fn main() {
         .route("/sdk/datasets/{id}/upload", post(routes::sdk::dataset_upload))
         .route("/sdk/datasets/{id}/content", get(routes::sdk::dataset_content))
         .route("/sdk/models/resolve/{name_or_id}", get(routes::sdk::resolve_model))
+        .route("/sdk/models/resolve-registry/{name}", get(routes::sdk::resolve_registry_model))
         .route("/sdk/models/{id}/artifact", get(routes::sdk::model_artifact))
         // SDK Feature Store
         .route("/sdk/features", post(routes::sdk::create_features))
@@ -201,6 +206,31 @@ async fn main() {
         .route("/sdk/sweeps", post(routes::sdk::create_sweep))
         .route("/sdk/sweeps/{id}", get(routes::sdk::get_sweep))
         .route("/sdk/sweeps/{id}/stop", post(routes::sdk::stop_sweep))
+        // SDK Visualizations
+        .route("/sdk/visualizations", get(routes::visualizations::list_all))
+        .route("/sdk/visualizations", post(routes::visualizations::create))
+        .route("/sdk/visualizations/{id}", get(routes::visualizations::get))
+        .route("/sdk/visualizations/{id}", put(routes::visualizations::update))
+        .route("/sdk/visualizations/{id}/publish", post(routes::visualizations::publish))
+        .route("/sdk/visualizations/{id}/render", post(routes::visualizations::get))
+        // SDK Dashboards
+        .route("/sdk/dashboards", get(routes::visualizations::list_dashboards))
+        .route("/sdk/dashboards", post(routes::visualizations::create_dashboard))
+        .route("/sdk/dashboards/{id}", get(routes::visualizations::get_dashboard))
+        .route("/sdk/dashboards/{id}", put(routes::visualizations::update_dashboard))
+        // Visualizations
+        .route("/visualizations", get(routes::visualizations::list_all))
+        .route("/visualizations", post(routes::visualizations::create))
+        .route("/visualizations/{id}", get(routes::visualizations::get))
+        .route("/visualizations/{id}", put(routes::visualizations::update))
+        .route("/visualizations/{id}", delete(routes::visualizations::delete))
+        .route("/visualizations/{id}/publish", post(routes::visualizations::publish))
+        // Dashboards
+        .route("/dashboards", get(routes::visualizations::list_dashboards))
+        .route("/dashboards", post(routes::visualizations::create_dashboard))
+        .route("/dashboards/{id}", get(routes::visualizations::get_dashboard))
+        .route("/dashboards/{id}", put(routes::visualizations::update_dashboard))
+        .route("/dashboards/{id}", delete(routes::visualizations::delete_dashboard))
         // Admin
         .route("/admin/users", get(routes::admin::list_users))
         .route("/admin/users/{id}", put(routes::admin::update_user))

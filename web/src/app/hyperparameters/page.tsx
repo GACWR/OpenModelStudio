@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import { SlidersHorizontal, Plus, FolderKanban, Brain, Clock, Hash, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface HyperparameterSet {
   id: string;
@@ -70,6 +71,7 @@ function formatParamValue(value: unknown): string {
 }
 
 export default function HyperparametersPage() {
+  const { selectedProjectId, projects } = useProjectFilter();
   const [sets, setSets] = useState<HyperparameterSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,6 @@ export default function HyperparametersPage() {
   const [newProject, setNewProject] = useState("");
   const [newParams, setNewParams] = useState('{\n  "learning_rate": 0.001,\n  "batch_size": 32,\n  "epochs": 10\n}');
   const [submitting, setSubmitting] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [_models, setModels] = useState<{ id: string; name: string }[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -87,16 +88,12 @@ export default function HyperparametersPage() {
   const fetchSets = () => {
     setLoading(true);
     setError(null);
-    Promise.all([
-      api.get<{ id: string; name: string }[]>("/projects"),
-      api.get<{ id: string; name: string }[]>("/models"),
-    ]).then(([p, m]) => {
-      setProjects(p);
+    api.getFiltered<{ id: string; name: string }[]>("/models", selectedProjectId).then((m) => {
       setModels(m);
-      const projectMap = new Map(p.map((x) => [x.id, x.name]));
+      const projectMap = new Map(projects.map((x) => [x.id, x.name]));
       const modelMap = new Map(m.map((x) => [x.id, x.name]));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return api.get<any[]>("/sdk/hyperparameters").then((data) =>
+      return api.getFiltered<any[]>("/sdk/hyperparameters", selectedProjectId).then((data) =>
         setSets(data.map((h) => mapSet(h, projectMap, modelMap)))
       );
     }).catch((err) => {
@@ -104,7 +101,7 @@ export default function HyperparametersPage() {
     }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchSets(); }, []);
+  useEffect(() => { fetchSets(); }, [selectedProjectId]);
 
   const handleCreate = async () => {
     if (!newName.trim()) { toast.error("Name is required"); return; }

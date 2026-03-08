@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use uuid::Uuid;
@@ -8,17 +8,24 @@ use crate::auth::create_workspace_token;
 use crate::error::{AppError, AppResult};
 use crate::middleware::auth::AuthUser;
 use crate::models::workspace::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Workspace>>> {
-    let workspaces: Vec<Workspace> = sqlx::query_as(
-        "SELECT * FROM workspaces ORDER BY updated_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let workspaces: Vec<Workspace> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM workspaces WHERE project_id = $1 ORDER BY updated_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM workspaces ORDER BY updated_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(workspaces))
 }
 
@@ -73,6 +80,7 @@ pub async fn launch(
     .fetch_one(&state.db)
     .await?;
 
+    notify(&state.db, claims.sub, "Workspace Launched", &format!("Workspace '{}' is now running", ws.name), NotifyType::Success, Some("/workspaces")).await;
     Ok(Json(WorkspaceLaunchResponse {
         access_url: ws.access_url.clone().unwrap_or_default(),
         workspace: ws,
@@ -93,7 +101,7 @@ pub async fn get(
 
 pub async fn stop(
     State(state): State<AppState>,
-    AuthUser(_claims): AuthUser,
+    AuthUser(claims): AuthUser,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let ws: Workspace = sqlx::query_as("SELECT * FROM workspaces WHERE id = $1")
@@ -110,5 +118,6 @@ pub async fn stop(
         .execute(&state.db)
         .await?;
 
+    notify(&state.db, claims.sub, "Workspace Stopped", &format!("Workspace '{}' has been stopped", ws.name), NotifyType::Info, Some("/workspaces")).await;
     Ok(Json(serde_json::json!({ "stopped": true })))
 }

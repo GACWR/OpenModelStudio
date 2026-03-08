@@ -52,6 +52,11 @@ class ApiClient {
     return this.request<T>(path);
   }
 
+  getFiltered<T>(path: string, projectId: string | null) {
+    const url = projectId ? `${path}?project_id=${projectId}` : path;
+    return this.request<T>(url);
+  }
+
   post<T>(path: string, body: unknown) {
     return this.request<T>(path, {
       method: "POST",

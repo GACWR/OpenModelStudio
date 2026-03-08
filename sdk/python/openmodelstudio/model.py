@@ -1,6 +1,6 @@
 """Module-level convenience functions that use a default Client instance."""
 
-from .client import Client, ModelHandle
+from .client import Client, ModelHandle, RegistryModel
 
 _client = None
 
@@ -118,6 +118,21 @@ def load_model(name_or_id: str, version: int = None, device: str = None):
         predictions = clf.predict(X_test)
     """
     return _get_client().load_model(name_or_id, version=version, device=device)
+
+
+def use_model(registry_name: str) -> RegistryModel:
+    """Load an installed registry model, ready to register.
+
+    Works inside workspace containers (resolves via API) and on the host
+    (falls back to local filesystem). Auto-installs from registry if
+    not yet installed.
+
+    Examples::
+
+        iris = openmodelstudio.use_model("iris-svm")
+        handle = openmodelstudio.register_model("my-iris", model=iris)
+    """
+    return _get_client().use_model(registry_name)
 
 
 # ── Feature Store ────────────────────────────────────────────────────

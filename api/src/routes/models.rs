@@ -1,14 +1,71 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::job::JobStatus;
 use crate::models::model::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
+
+/// GET /models/registry-status?names=iris-svm,mnist-cnn
+/// Returns a map of registry_name → installed (boolean).
+#[derive(Debug, serde::Deserialize)]
+pub struct RegistryStatusQuery {
+    pub names: String,
+}
+
+pub async fn registry_status(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Query(q): Query<RegistryStatusQuery>,
+) -> AppResult<Json<HashMap<String, bool>>> {
+    let names: Vec<&str> = q.names.split(',').filter(|s| !s.is_empty()).collect();
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT registry_name FROM models WHERE registry_name = ANY($1)"
+    )
+    .bind(&names)
+    .fetch_all(&state.db)
+    .await?;
+
+    let installed: std::collections::HashSet<String> =
+        rows.into_iter().map(|r| r.0).collect();
+    let result: HashMap<String, bool> = names
+        .iter()
+        .map(|n| (n.to_string(), installed.contains(*n)))
+        .collect();
+
+    Ok(Json(result))
+}
+
+/// POST /models/registry-uninstall
+/// Marks a registry model as uninstalled by clearing its registry_name.
+#[derive(Debug, serde::Deserialize)]
+pub struct RegistryUninstallRequest {
+    pub name: String,
+}
+
+pub async fn registry_uninstall(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Json(req): Json<RegistryUninstallRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    let updated = sqlx::query(
+        "UPDATE models SET registry_name = NULL, updated_at = NOW() WHERE registry_name = $1"
+    )
+    .bind(&req.name)
+    .execute(&state.db)
+    .await?;
+
+    Ok(Json(serde_json::json!({
+        "uninstalled": true,
+        "rows_affected": updated.rows_affected()
+    })))
+}
 
 pub async fn list(
     State(state): State<AppState>,
@@ -27,12 +84,18 @@ pub async fn list(
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Model>>> {
-    let models: Vec<Model> = sqlx::query_as(
-        "SELECT * FROM models ORDER BY updated_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let models: Vec<Model> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM models WHERE project_id = $1 ORDER BY updated_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM models ORDER BY updated_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(models))
 }
 
@@ -66,6 +129,7 @@ pub async fn create(
     .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Model Created", &format!("Model '{}' created ({})", model.name, model.framework), NotifyType::Success, Some(&format!("/models/{}", model.id))).await;
     Ok(Json(model))
 }
 

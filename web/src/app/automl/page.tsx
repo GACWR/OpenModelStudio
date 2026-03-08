@@ -22,6 +22,7 @@ import { staggerContainer, staggerItem } from "@/components/shared/animated-page
 import { Sparkles, Trophy, Clock } from "lucide-react";
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip } from "recharts";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface Sweep {
   id: string;
@@ -78,6 +79,7 @@ function mapTrial(r: any, i: number, all: any[]): Trial {
 }
 
 export default function AutoMLPage() {
+  const { selectedProjectId } = useProjectFilter();
   const [sweeps, setSweeps] = useState<Sweep[]>([]);
   const [trials, setTrials] = useState<Trial[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,8 +92,8 @@ export default function AutoMLPage() {
     setLoading(true);
     setError(null);
     Promise.all([
-      api.get<any[]>("/automl/sweeps").then((d) => d.map(mapSweep)),
-      api.get<any[]>("/automl/trials").then((d) => d.map(mapTrial)),
+      api.getFiltered<any[]>("/automl/sweeps", selectedProjectId).then((d) => d.map(mapSweep)),
+      api.getFiltered<any[]>("/automl/trials", selectedProjectId).then((d) => d.map(mapTrial)),
     ]).then(([s, t]) => {
       setSweeps(s);
       setTrials(t);
@@ -100,7 +102,7 @@ export default function AutoMLPage() {
     }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchSweeps(); }, []);
+  useEffect(() => { fetchSweeps(); }, [selectedProjectId]);
 
   const handleCreateSweep = async () => {
     if (!newName.trim()) { toast.error("Sweep name is required"); return; }

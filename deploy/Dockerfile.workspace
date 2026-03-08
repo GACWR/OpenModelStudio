@@ -15,19 +15,30 @@ RUN pip install --no-cache-dir \
     torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir \
     "scikit-learn>=1.6" matplotlib seaborn \
+    "numexpr>=2.10.2" "bottleneck>=1.4.2" \
     transformers datasets accelerate \
     boto3 psycopg2-binary \
     tensorflow keras
+
+# Install visualization backends (all 9 supported by the SDK)
+RUN pip install --no-cache-dir \
+    plotly>=5.18 altair>=5.2 bokeh>=3.3 \
+    plotnine>=0.13 networkx>=3.2 \
+    geopandas>=0.14 datashader>=0.16
 
 # Set JupyterLab dark theme as default
 RUN mkdir -p /opt/conda/share/jupyter/lab/settings && \
     echo '{ "@jupyterlab/apputils-extension:themes": { "theme": "JupyterLab Dark" } }' \
     > /opt/conda/share/jupyter/lab/settings/overrides.json
 
-# Create workspace directory and copy welcome notebook
+# Create workspace directory and copy notebooks
 RUN mkdir -p /workspace/models && chown -R ${NB_UID}:${NB_GID} /workspace
 COPY workspace/welcome.ipynb /workspace/welcome.ipynb
-RUN chown ${NB_UID}:${NB_GID} /workspace/welcome.ipynb
+COPY workspace/visualization.ipynb /workspace/visualization.ipynb
+COPY workspace/registry.ipynb /workspace/registry.ipynb
+RUN chown ${NB_UID}:${NB_GID} /workspace/welcome.ipynb \
+    /workspace/visualization.ipynb \
+    /workspace/registry.ipynb
 
 USER ${NB_UID}
 WORKDIR /workspace

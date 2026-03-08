@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage } from "@/components/shared/animated-page";
 import { GlassCard } from "@/components/shared/glass-card";
@@ -92,6 +93,7 @@ function ResourceBar({ label, value, color }: { label: string; value: number; co
 }
 
 export default function WorkspacesPage() {
+  const { selectedProjectId, projects } = useProjectFilter();
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +101,6 @@ export default function WorkspacesPage() {
   const [launchOpen, setLaunchOpen] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceItem | null>(null);
   const [launching, setLaunching] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selectedProject, setSelectedProject] = useState("");
   const [wsReady, setWsReady] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -108,7 +109,7 @@ export default function WorkspacesPage() {
     setLoading(true);
     setError(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<any[]>("/workspaces")
+    api.getFiltered<any[]>("/workspaces", selectedProjectId)
       .then((data) => setWorkspaces(data.map(mapWorkspace)))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load workspaces"))
       .finally(() => setLoading(false));
@@ -116,8 +117,7 @@ export default function WorkspacesPage() {
 
   useEffect(() => {
     fetchWorkspaces();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch((err) => setError(err instanceof Error ? err.message : "Failed to load projects"));
-  }, []);
+  }, [selectedProjectId]);
 
   const getWorkspaceUrl = (ws: { access_url?: string }) => ws.access_url || "";
 

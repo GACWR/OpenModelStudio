@@ -37,11 +37,16 @@
 
 ### For Data Scientists
 - **Project Management** -- Organize experiments with stage-based workflow (Ideation, Development, Production)
+- **Project-Scoped Filtering** -- Global project selector in the topbar scopes every page (models, datasets, experiments, jobs, workspaces, features, visualizations) to a single project
 - **Model Editor** -- Write and edit models directly in the browser with Monaco (Python + Rust)
-- **Real-Time Training** -- Watch loss curves update live via SSE during training
+- **Model Registry & CLI** -- Search, install, and manage models from the [Open Model Registry](https://github.com/GACWR/open-model-registry) via CLI (`openmodelstudio install iris-svm`) or the in-app registry browser. Install status syncs bidirectionally between CLI and UI
+- **Real-Time Training** -- Watch loss curves, accuracy, and all metrics auto-update live during training with second-level duration accuracy
 - **Generative Output Viewer** -- See video/image/audio outputs as models train
 - **Experiment Tracking** -- Compare runs with parallel coordinates and sortable tables
-- **JupyterLab Workspaces** -- Launch cloud-native notebooks with one click
+- **Visualizations & Dashboards** -- 9 visualization backends (matplotlib, seaborn, plotly, bokeh, altair, plotnine, datashader, networkx, geopandas) with a unified `render()` abstraction. Combine visualizations into drag-and-drop dashboards with persistent layout
+- **Global Search** -- Cmd+K command palette searches across models, datasets, experiments, training jobs, projects, and visualizations with instant navigation
+- **Notifications** -- Real-time notification bell with unread count, grouped timeline (Today / This Week / Earlier), mark-all-read, and context-aware icons
+- **JupyterLab Workspaces** -- Launch cloud-native notebooks pre-loaded with tutorial notebooks (Welcome, Visualizations, Registry)
 - **LLM Assistant** -- Natural language control of the entire platform
 - **AutoML** -- Automated hyperparameter search
 - **Feature Store** -- Reusable features across projects
@@ -49,6 +54,7 @@
 ### For ML Engineers
 - **Kubernetes-Native** -- Every model trains in its own ephemeral pod
 - **Rust API** -- High-performance backend built with Axum + SQLx
+- **Python SDK & CLI** -- `pip install openmodelstudio` gives you both a Python SDK (`import openmodelstudio as oms`) and a CLI for registry management, model install/uninstall, and configuration
 - **GraphQL** -- Auto-generated from PostgreSQL via PostGraphile
 - **Streaming Data** -- Never load full datasets to disk
 - **One-Command Deploy** -- `make k8s-deploy` sets up everything
@@ -67,6 +73,60 @@
 <p align="center">
   <img src="docs/screenshots/oms-screenshot2.png" alt="OpenModelStudio Workspaces and Model Metrics" width="100%" />
 </p>
+
+### Visualizations & Dashboards
+
+Create, render, and publish data visualizations from notebooks or the in-browser editor. OpenModelStudio supports **9 visualization backends** with a unified `render()` function that auto-detects the library:
+
+| Backend | Output | Use Case |
+|---------|--------|----------|
+| matplotlib | SVG | Standard plots, publication-quality figures |
+| seaborn | SVG | Statistical visualization, heatmaps |
+| plotly | JSON | Interactive charts with zoom, pan, hover |
+| bokeh | JSON | Interactive streaming charts |
+| altair | JSON | Declarative Vega-Lite specifications |
+| plotnine | SVG | ggplot2-style grammar of graphics |
+| datashader | PNG | Server-side rendering for millions of points |
+| networkx | SVG | Network/graph visualizations |
+| geopandas | SVG | Geospatial maps |
+
+```python
+import openmodelstudio as oms
+
+viz = oms.create_visualization("loss-curve", backend="plotly")
+output = oms.render(fig, viz_id=viz["id"])   # auto-detects backend
+oms.publish_visualization(viz["id"])         # available for dashboards
+```
+
+Combine visualizations into **drag-and-drop dashboards** with resizable panels, lock/unlock layout, and persistent configuration. Each visualization also has a full **in-browser editor** (`/visualizations/{id}`) with Monaco, live preview for JSON backends, template insertion, and data/config tabs.
+
+<p align="center">
+  <img src="docs/screenshots/oms-screenshot3.png" alt="OpenModelStudio Visualization Framework" width="100%" />
+</p>
+
+### Model Registry
+
+Browse, install, and manage models from the [Open Model Registry](https://github.com/GACWR/open-model-registry) -- a public GitHub repo that acts as a decentralized model package manager.
+
+**From the CLI:**
+```bash
+openmodelstudio search classification        # Search by keyword
+openmodelstudio install iris-svm             # Install a model
+openmodelstudio list                         # List installed models
+```
+
+**From a notebook or script:**
+```python
+import openmodelstudio as oms
+
+iris = oms.use_model("iris-svm")                        # Load from registry
+handle = oms.register_model("my-iris", model=iris)      # Register in project
+job = oms.start_training(handle.model_id, wait=True)    # Train it
+```
+
+`use_model()` resolves via the platform API, so it works inside workspace containers (K8s pods) without filesystem access. If the model isn't installed yet, it auto-installs from the registry. The web UI registry page shows **Installed** / **Not Installed** badges that stay in sync with CLI operations.
+
+---
 
 ## Quick Start
 
@@ -142,9 +202,9 @@ This will:
 | **Frontend** | Next.js 16, shadcn/ui, Tailwind, Recharts | App Router, Monaco editor, SSE streaming, Cmd+K search |
 | **API** | Rust, Axum, SQLx | JWT auth, RBAC, K8s client, SSE metrics, LLM integration |
 | **PostGraphile** | Node.js | Auto-generated GraphQL from PostgreSQL schema |
-| **PostgreSQL 16** | SQL | Primary data store: users, projects, models, jobs, datasets, experiments |
+| **PostgreSQL 16** | SQL | Primary data store: users, projects, models, jobs, datasets, experiments, visualizations, dashboards, notifications |
 | **Model Runner** | Python/Rust | Ephemeral K8s pods per training job, streaming metrics |
-| **JupyterHub** | Python | Per-user JupyterLab with pre-configured SDK and datasets |
+| **JupyterHub** | Python | Per-user JupyterLab with pre-configured SDK, tutorial notebooks, and datasets |
 
 ### Training Job Lifecycle
 
@@ -161,15 +221,18 @@ User clicks "Train" --> API creates training_job record
 ### Database Schema (Key Tables)
 
 ```sql
-users           (id, email, name, password_hash, role, created_at)
-projects        (id, name, description, stage, owner_id, created_at)
-models          (id, project_id, name, framework, created_at)
-model_versions  (id, model_id, version, code, created_at)
-jobs            (id, project_id, model_id, job_type, status, config, metrics, started_at, completed_at)
-datasets        (id, project_id, name, path, format, size_bytes, created_at)
-experiments     (id, project_id, name, description, created_at)
-experiment_runs (id, experiment_id, parameters, metrics, created_at)
-workspaces      (id, user_id, status, jupyter_url, created_at)
+users            (id, email, name, password_hash, role, created_at)
+projects         (id, name, description, stage, owner_id, created_at)
+models           (id, project_id, name, framework, registry_name, created_at)
+model_versions   (id, model_id, version, code, created_at)
+jobs             (id, project_id, model_id, job_type, status, config, metrics, started_at, completed_at)
+datasets         (id, project_id, name, path, format, size_bytes, created_at)
+experiments      (id, project_id, name, description, created_at)
+experiment_runs  (id, experiment_id, parameters, metrics, created_at)
+workspaces       (id, user_id, status, jupyter_url, created_at)
+visualizations   (id, project_id, name, backend, code, output_type, output_data, published, created_at)
+dashboards       (id, project_id, name, description, layout, created_at)
+notifications    (id, user_id, title, message, notification_type, read, link, created_at)
 ```
 
 > See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture documentation.
@@ -181,7 +244,9 @@ workspaces      (id, user_id, status, jupyter_url, created_at)
 Follow these guides to go from zero to a fully tracked ML experiment:
 
 1. **[Usage Guide](docs/USAGE.md)** -- Log in, create a project, upload a dataset, launch a workspace
-2. **[Modeling Guide](docs/MODELING.md)** -- Train, evaluate, and track models using the SDK (13-cell notebook walkthrough)
+2. **[Modeling Guide](docs/MODELING.md)** -- Train, evaluate, and track models using the SDK (16-cell notebook walkthrough including visualizations and dashboards)
+3. **[Visualization Guide](docs/VISUALIZATIONS.md)** -- All 9 backends, `render()` function, dashboards, and the in-browser editor (pre-loaded as `visualization.ipynb` in workspaces)
+4. **[Registry & CLI Guide](docs/CLI-REGISTRY.md)** -- Install, use, and manage models from the Open Model Registry (pre-loaded as `registry.ipynb` in workspaces)
 
 ---
 
@@ -221,6 +286,38 @@ Follow these guides to go from zero to a fully tracked ML experiment:
 | `POST` | `/training/start` | Start a training job |
 | `GET` | `/training/:id` | Get training job status |
 | `GET` | `/training/:id/metrics` | SSE stream of training metrics |
+
+### Visualizations & Dashboards
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/visualizations` | List visualizations (supports `?project_id=`) |
+| `POST` | `/visualizations` | Create a visualization |
+| `GET` | `/visualizations/:id` | Get visualization details |
+| `PUT` | `/visualizations/:id` | Update visualization code/config |
+| `POST` | `/visualizations/:id/render` | Render a visualization |
+| `POST` | `/visualizations/:id/publish` | Publish for dashboard use |
+| `GET` | `/dashboards` | List dashboards |
+| `POST` | `/dashboards` | Create a dashboard |
+| `PUT` | `/dashboards/:id` | Update dashboard layout |
+
+### Notifications & Search
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/notifications` | Get user notifications (supports `?unread=true`) |
+| `POST` | `/notifications/:id/read` | Mark notification as read |
+| `POST` | `/notifications/read-all` | Mark all notifications as read |
+| `GET` | `/search?q=` | Global search across models, datasets, experiments, jobs, projects |
+
+### Model Registry
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/models/registry-status?names=` | Check install status for registry models |
+| `POST` | `/models/registry-install` | Register a model from the registry |
+| `POST` | `/models/registry-uninstall` | Unregister a registry model |
+| `GET` | `/sdk/models/resolve-registry/:name` | Resolve a registry model by name (used by SDK `use_model()`) |
 
 ### Other Endpoints
 
@@ -304,7 +401,9 @@ Run `make help` to see all available targets. Key ones:
 | Doc | Description |
 |-----|-------------|
 | [Usage Guide](docs/USAGE.md) | UI walkthrough: login, projects, datasets, workspaces |
-| [Modeling Guide](docs/MODELING.md) | End-to-end SDK notebook: train, evaluate, track |
+| [Modeling Guide](docs/MODELING.md) | End-to-end SDK notebook: train, evaluate, visualize, track |
+| [Visualizations Guide](docs/VISUALIZATIONS.md) | 9 backends, `render()`, dashboards, in-browser editor |
+| [CLI & Registry Guide](docs/CLI-REGISTRY.md) | Model registry: search, install, `use_model()`, uninstall |
 | [Architecture](docs/ARCHITECTURE.md) | System design, component diagram, data flow |
 | [Model Authoring](docs/MODEL-AUTHORING.md) | How to write models for OpenModelStudio |
 | [Dataset Guide](docs/DATASET-GUIDE.md) | Preparing and uploading datasets |

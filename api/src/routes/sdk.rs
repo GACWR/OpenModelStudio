@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::error::{AppError, AppResult};
 use crate::middleware::auth::AuthUser;
 use crate::models::dataset::Dataset;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 /// Local dataset storage root (PVC mounted in the API pod).
@@ -24,6 +25,7 @@ pub struct SdkRegisterModelRequest {
     pub description: Option<String>,
     pub source_code: Option<String>,
     pub project_id: Option<Uuid>,
+    pub registry_name: Option<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -39,28 +41,57 @@ pub async fn register_model(
     Json(req): Json<SdkRegisterModelRequest>,
 ) -> AppResult<Json<SdkRegisterModelResponse>> {
     let framework = req.framework.unwrap_or_else(|| "pytorch".into());
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
     let workspace_id: Option<Uuid> = None;
 
-    // Check if a model with the same name already exists in this project
-    let existing: Option<crate::models::model::Model> = sqlx::query_as(
-        "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
-    )
-    .bind(&req.name)
-    .bind(project_id)
-    .fetch_optional(&state.db)
-    .await?;
+    // Check if a model with the same name (or registry_name) already exists
+    let existing: Option<crate::models::model::Model> = if req.registry_name.is_some() {
+        if let Some(pid) = project_id {
+            sqlx::query_as(
+                "SELECT * FROM models WHERE registry_name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+            )
+            .bind(&req.registry_name)
+            .bind(pid)
+            .fetch_optional(&state.db)
+            .await?
+        } else {
+            sqlx::query_as(
+                "SELECT * FROM models WHERE registry_name = $1 AND project_id IS NULL ORDER BY version DESC LIMIT 1"
+            )
+            .bind(&req.registry_name)
+            .fetch_optional(&state.db)
+            .await?
+        }
+    } else if let Some(pid) = project_id {
+        sqlx::query_as(
+            "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+        )
+        .bind(&req.name)
+        .bind(pid)
+        .fetch_optional(&state.db)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT * FROM models WHERE name = $1 AND project_id IS NULL ORDER BY version DESC LIMIT 1"
+        )
+        .bind(&req.name)
+        .fetch_optional(&state.db)
+        .await?
+    };
+
+    let from_registry = req.registry_name.is_some();
 
     let (model_id, new_version) = if let Some(existing_model) = existing {
         // Update existing model with new version
         let new_ver = existing_model.version + 1;
         let model: crate::models::model::Model = sqlx::query_as(
-            "UPDATE models SET source_code = $1, framework = $2, description = COALESCE($3, description), version = $4, updated_at = NOW() WHERE id = $5 RETURNING *"
+            "UPDATE models SET source_code = $1, framework = $2, description = COALESCE($3, description), version = $4, registry_name = COALESCE($5, registry_name), updated_at = NOW() WHERE id = $6 RETURNING *"
         )
         .bind(&req.source_code)
         .bind(&framework)
         .bind(&req.description)
         .bind(new_ver)
+        .bind(&req.registry_name)
         .bind(existing_model.id)
         .fetch_one(&state.db)
         .await?;
@@ -69,8 +100,8 @@ pub async fn register_model(
         // Create new model
         let model_id = Uuid::new_v4();
         let model: crate::models::model::Model = sqlx::query_as(
-            "INSERT INTO models (id, project_id, name, description, framework, source_code, version, created_by, status, language, origin_workspace_id, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'draft', 'Python', $8, NOW(), NOW()) RETURNING *"
+            "INSERT INTO models (id, project_id, name, description, framework, source_code, version, created_by, status, language, origin_workspace_id, registry_name, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'draft', 'Python', $8, $9, NOW(), NOW()) RETURNING *"
         )
         .bind(model_id)
         .bind(project_id)
@@ -80,6 +111,7 @@ pub async fn register_model(
         .bind(&req.source_code)
         .bind(claims.sub)
         .bind(workspace_id)
+        .bind(&req.registry_name)
         .fetch_one(&state.db)
         .await?;
         (model.id, 1)
@@ -97,11 +129,18 @@ pub async fn register_model(
         .bind(&req.source_code)
         .bind(claims.sub)
         .bind(workspace_id)
-        .bind(if new_version == 1 { "Initial version from workspace" } else { "Updated from workspace" })
+        .bind(if from_registry {
+            if new_version == 1 { "Installed from registry" } else { "Updated from registry" }
+        } else if new_version == 1 {
+            "Initial version from workspace"
+        } else {
+            "Updated from workspace"
+        })
         .execute(&state.db)
         .await?;
     }
 
+    notify(&state.db, claims.sub, "Model Registered", &format!("Model '{}' v{} registered via SDK", req.name, new_version), NotifyType::Success, Some(&format!("/models/{}", model_id))).await;
     Ok(Json(SdkRegisterModelResponse {
         model_id,
         name: req.name,
@@ -178,6 +217,7 @@ pub async fn publish_version(
             .await?;
     }
 
+    notify(&state.db, claims.sub, "Version Published", &format!("Model version {} published", new_version), NotifyType::Success, Some(&format!("/models/{}", req.model_id))).await;
     Ok(Json(SdkPublishVersionResponse {
         version_id,
         version: new_version,
@@ -329,7 +369,7 @@ pub async fn create_dataset(
 
     let dataset_id = Uuid::new_v4();
     let format = req.format.unwrap_or_else(|| "csv".into());
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
 
     // Decode base64
     let bytes = base64::engine::general_purpose::STANDARD
@@ -367,6 +407,7 @@ pub async fn create_dataset(
     .fetch_one(&state.db)
     .await?;
 
+    notify(&state.db, claims.sub, "Dataset Created", &format!("Dataset '{}' created via SDK", dataset.name), NotifyType::Success, Some(&format!("/datasets/{}", dataset.id))).await;
     Ok(Json(dataset))
 }
 
@@ -394,6 +435,25 @@ pub async fn resolve_model(
             .await?
             .ok_or_else(|| AppError::NotFound(format!("Model not found: {name_or_id}")))?
     };
+
+    Ok(Json(model))
+}
+
+/// GET /sdk/models/resolve-registry/{registry_name}
+/// Resolve a model by its registry_name column. Returns the full Model JSON
+/// including source_code. Used by SDK use_model().
+pub async fn resolve_registry_model(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Path(registry_name): Path<String>,
+) -> AppResult<Json<crate::models::model::Model>> {
+    let model: crate::models::model::Model = sqlx::query_as(
+        "SELECT * FROM models WHERE registry_name = $1 ORDER BY created_at DESC LIMIT 1"
+    )
+    .bind(&registry_name)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Registry model not found: {registry_name}")))?;
 
     Ok(Json(model))
 }
@@ -550,12 +610,12 @@ pub async fn create_features(
     AuthUser(claims): AuthUser,
     Json(req): Json<SdkCreateFeaturesRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
     let entity = req.entity.unwrap_or_else(|| "default".into());
 
     // Create or find feature group
     let group_id: Uuid = match sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM feature_groups WHERE name = $1 AND project_id = $2"
+        "SELECT id FROM feature_groups WHERE name = $1 AND (project_id = $2 OR ($2::uuid IS NULL AND project_id IS NULL))"
     )
     .bind(&req.group_name)
     .bind(project_id)
@@ -666,7 +726,7 @@ pub async fn create_hyperparameters(
     Json(req): Json<CreateHpSetRequest>,
 ) -> AppResult<Json<HyperparameterSet>> {
     let id = Uuid::new_v4();
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
 
     let hp: HyperparameterSet = sqlx::query_as(
         "INSERT INTO hyperparameter_sets (id, project_id, name, description, parameters, model_id, created_by, created_at, updated_at)
@@ -910,6 +970,7 @@ pub async fn start_training(
         .fetch_one(&state.db)
         .await?;
 
+    notify(&state.db, claims.sub, "Training Started", &format!("Training started for '{}' via SDK", model.name), NotifyType::Info, Some(&format!("/training/{}", job_id))).await;
     Ok(Json(job))
 }
 
@@ -975,6 +1036,7 @@ pub async fn start_inference(
         .fetch_one(&state.db)
         .await?;
 
+    notify(&state.db, claims.sub, "Inference Started", &format!("Inference started for '{}' via SDK", model.name), NotifyType::Info, Some(&format!("/inference/{}", job_id))).await;
     Ok(Json(job))
 }
 
@@ -1073,7 +1135,7 @@ pub async fn create_pipeline(
     Json(req): Json<CreatePipelineRequest>,
 ) -> AppResult<Json<Pipeline>> {
     let pipeline_id = Uuid::new_v4();
-    let project_id = req.project_id.unwrap_or_else(Uuid::nil);
+    let project_id: Option<Uuid> = req.project_id.filter(|id| !id.is_nil());
 
     let pipeline: Pipeline = sqlx::query_as(
         "INSERT INTO pipelines (id, project_id, name, description, status, created_by, created_at, updated_at)
@@ -1102,6 +1164,7 @@ pub async fn create_pipeline(
         .await?;
     }
 
+    notify(&state.db, claims.sub, "Pipeline Created", &format!("Pipeline '{}' created via SDK", pipeline.name), NotifyType::Info, None).await;
     Ok(Json(pipeline))
 }
 
@@ -1290,6 +1353,7 @@ pub async fn run_pipeline(
             .await;
     });
 
+    notify(&state.db, claims.sub, "Pipeline Started", "Pipeline execution has started", NotifyType::Info, None).await;
     Ok(Json(serde_json::json!({
         "pipeline_id": id,
         "status": "running",
@@ -1310,7 +1374,7 @@ pub async fn create_sweep(
     Json(req): Json<CreateSweepRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let model = resolve_model_id(&state.db, &req.model_id).await?;
-    let project_id = req.project_id.unwrap_or(model.project_id);
+    let project_id = req.project_id.or(model.project_id);
 
     let dataset_id = if let Some(ref ds) = req.dataset_id {
         Some(resolve_dataset_id(&state.db, ds).await?)
@@ -1496,6 +1560,7 @@ pub async fn create_sweep(
             .await;
     });
 
+    notify(&state.db, claims.sub, "Sweep Started", &format!("Hyperparameter sweep '{}' started ({} trials)", req.name, max_trials), NotifyType::Info, None).await;
     Ok(Json(serde_json::json!({
         "sweep_id": sweep.id,
         "experiment_id": experiment_id,

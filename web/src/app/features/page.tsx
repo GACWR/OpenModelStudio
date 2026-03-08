@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Layers, Plus, Database, Activity, GitBranch, BarChart3 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface FeatureGroup {
   id: string;
@@ -125,6 +126,7 @@ function StatsTab({ features }: { features: Feature[] }) {
 }
 
 export default function FeaturesPage() {
+  const { selectedProjectId, projects } = useProjectFilter();
   const [groups, setGroups] = useState<FeatureGroup[]>([]);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,14 +137,13 @@ export default function FeaturesPage() {
   const [newProject, setNewProject] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("groups");
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
   const fetchFeatures = () => {
     setLoading(true);
     setError(null);
     Promise.all([
-      api.get<any[]>("/features/groups").then((d) => d.map(mapGroup)),
-      api.get<any[]>("/features").then((d) => d.map(mapFeature)),
+      api.getFiltered<any[]>("/features/groups", selectedProjectId).then((d) => d.map(mapGroup)),
+      api.getFiltered<any[]>("/features", selectedProjectId).then((d) => d.map(mapFeature)),
     ]).then(([g, f]) => {
       setGroups(g);
       setFeatures(f);
@@ -153,8 +154,7 @@ export default function FeaturesPage() {
 
   useEffect(() => {
     fetchFeatures();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch(() => {});
-  }, []);
+  }, [selectedProjectId]);
 
   const handleCreateGroup = async () => {
     if (!newProject) { toast.error("Select a project"); return; }

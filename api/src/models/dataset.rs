@@ -6,7 +6,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Dataset {
     pub id: Uuid,
-    pub project_id: Uuid,
+    pub project_id: Option<Uuid>,
     pub name: String,
     pub description: Option<String>,
     pub format: String,
@@ -45,7 +45,7 @@ pub struct UploadUrlResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct DataSource {
     pub id: Uuid,
-    pub project_id: Uuid,
+    pub project_id: Option<Uuid>,
     pub name: String,
     pub source_type: String,
     pub connection_string: Option<String>,

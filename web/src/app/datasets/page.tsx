@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Database, Upload, HardDrive, FileText, Image, Video, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface Dataset {
   id: string;
@@ -91,12 +92,12 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function DatasetsPage() {
+  const { selectedProjectId, projects } = useProjectFilter();
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [uploadProject, setUploadProject] = useState("");
   const [uploadName, setUploadName] = useState("");
   const [uploadFormat, setUploadFormat] = useState("");
@@ -105,7 +106,7 @@ export default function DatasetsPage() {
   const fetchDatasets = () => {
     setLoading(true);
     setError(null);
-    api.get<any[]>("/datasets")
+    api.getFiltered<any[]>("/datasets", selectedProjectId)
       .then((data) => setDatasets(data.map(mapDataset)))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load datasets"))
       .finally(() => setLoading(false));
@@ -113,8 +114,7 @@ export default function DatasetsPage() {
 
   useEffect(() => {
     fetchDatasets();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch(() => {});
-  }, []);
+  }, [selectedProjectId]);
 
   const handleFileSelected = useCallback((file: File) => {
     setUploadFile(file);

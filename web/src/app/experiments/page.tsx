@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import { FlaskConical, Plus, Sparkles, GitCompare, Trophy, ChevronRight, Users, BarChart3 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 
 interface Experiment {
   id: string;
@@ -58,6 +59,7 @@ const typeColors: Record<string, string> = {
 
 export default function ExperimentsPage() {
   const router = useRouter();
+  const { selectedProjectId, projects } = useProjectFilter();
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [runCounts, setRunCounts] = useState<Record<string, number>>({});
   const [selectedExp, setSelectedExp] = useState<Experiment | null>(null);
@@ -70,14 +72,13 @@ export default function ExperimentsPage() {
   const [newProject, setNewProject] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
   const fetchExperiments = async () => {
     setLoading(true);
     setError(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const exps = await api.get<any[]>("/experiments");
+      const exps = await api.getFiltered<any[]>("/experiments", selectedProjectId);
       setExperiments(exps);
 
       // Fetch run counts for each experiment
@@ -130,9 +131,9 @@ export default function ExperimentsPage() {
   }, [selectedExp?.id]);
 
   useEffect(() => {
+    setSelectedExp(null);
     fetchExperiments();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch(() => {});
-  }, []);
+  }, [selectedProjectId]);
 
   const handleCreate = async () => {
     if (!newProject) { toast.error("Select a project"); return; }

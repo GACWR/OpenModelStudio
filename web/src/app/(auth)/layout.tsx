@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="relative z-10 w-full max-w-md px-4">
         {children}
         <p className="mt-6 text-center text-[10px] text-muted-foreground/50 tracking-wider uppercase">
-          Powered by K8s + PyTorch + Rust
+          Created with ❤️ by GACWR
         </p>
       </div>
     </div>

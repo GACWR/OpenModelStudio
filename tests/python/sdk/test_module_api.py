@@ -117,6 +117,9 @@ class TestAllExports:
             if name == "Client":
                 # Client is a class, which is callable, but we test it separately
                 assert isinstance(obj, type)
+            elif name in ("SUPPORTED_BACKENDS", "VisualizationContext"):
+                # Constants and context classes are not functions
+                assert obj is not None
             else:
                 assert callable(obj), f"{name} is not callable"
 

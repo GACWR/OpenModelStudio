@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { Brain, Search, Plus, Terminal, Code2 } from "lucide-react";
+import { Brain, Search, Plus, Terminal, Code2, Package } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ interface Model {
   status: string;
   version: string;
   description: string;
+  registry_name: string | null;
 }
 
 const frameworkColors: Record<string, string> = {
@@ -40,6 +42,7 @@ const frameworkColors: Record<string, string> = {
 
 export default function ModelsPage() {
   const router = useRouter();
+  const { selectedProjectId, projects } = useProjectFilter();
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +55,10 @@ export default function ModelsPage() {
   const [regFramework, setRegFramework] = useState("");
   const [regProject, setRegProject] = useState("");
   const [registering, setRegistering] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
   const fetchModels = () => {
     setLoading(true);
-    api.get<Model[]>("/models")
+    api.getFiltered<Model[]>("/models", selectedProjectId)
       .then(setModels)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -81,8 +83,7 @@ export default function ModelsPage() {
 
   useEffect(() => {
     fetchModels();
-    api.get<{ id: string; name: string }[]>("/projects").then(setProjects).catch(() => {});
-  }, []);
+  }, [selectedProjectId]);
 
   const filtered = models.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -251,6 +252,14 @@ export default function ModelsPage() {
                         <Badge variant="outline" className={frameworkColors[model.framework] || ""}>{model.framework}</Badge>
                         <Badge variant="secondary" className="bg-muted text-[10px]">v{model.version}</Badge>
                         <StatusBadge status={model.status} />
+                        {model.registry_name && (
+                          <Link href={`/registry/${encodeURIComponent(model.registry_name)}`} onClick={(e) => e.stopPropagation()}>
+                            <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] gap-1 hover:bg-violet-500/20 transition-colors">
+                              <Package className="h-2.5 w-2.5" />
+                              Registry
+                            </Badge>
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </GlassCard>

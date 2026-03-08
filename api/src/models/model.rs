@@ -6,7 +6,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Model {
     pub id: Uuid,
-    pub project_id: Uuid,
+    pub project_id: Option<Uuid>,
     pub name: String,
     pub description: Option<String>,
     pub framework: String,
@@ -18,6 +18,7 @@ pub struct Model {
     pub status: String,
     pub language: String,
     pub origin_workspace_id: Option<Uuid>,
+    pub registry_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

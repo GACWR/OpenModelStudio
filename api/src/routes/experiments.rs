@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use uuid::Uuid;
@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::error::AppResult;
 use crate::middleware::auth::AuthUser;
 use crate::models::experiment::*;
+use crate::services::notify::{notify, NotifyType};
 use crate::AppState;
 
 pub async fn list(
@@ -26,12 +27,18 @@ pub async fn list(
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
+    Query(params): Query<super::ProjectFilter>,
 ) -> AppResult<Json<Vec<Experiment>>> {
-    let experiments: Vec<Experiment> = sqlx::query_as(
-        "SELECT * FROM experiments ORDER BY created_at DESC"
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let experiments: Vec<Experiment> = if let Some(pid) = params.project_id {
+        sqlx::query_as("SELECT * FROM experiments WHERE project_id = $1 ORDER BY created_at DESC")
+            .bind(pid)
+            .fetch_all(&state.db)
+            .await?
+    } else {
+        sqlx::query_as("SELECT * FROM experiments ORDER BY created_at DESC")
+            .fetch_all(&state.db)
+            .await?
+    };
     Ok(Json(experiments))
 }
 
@@ -63,12 +70,13 @@ pub async fn create(
     .bind(claims.sub)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Experiment Created", &format!("Experiment '{}' created", exp.name), NotifyType::Info, Some(&format!("/experiments/{}", exp.id))).await;
     Ok(Json(exp))
 }
 
 pub async fn add_run(
     State(state): State<AppState>,
-    AuthUser(_claims): AuthUser,
+    AuthUser(claims): AuthUser,
     Path(experiment_id): Path<Uuid>,
     Json(req): Json<AddRunRequest>,
 ) -> AppResult<Json<ExperimentRun>> {
@@ -83,6 +91,7 @@ pub async fn add_run(
     .bind(&req.metrics)
     .fetch_one(&state.db)
     .await?;
+    notify(&state.db, claims.sub, "Experiment Run Logged", "New run added to experiment", NotifyType::Info, Some(&format!("/experiments/{}", experiment_id))).await;
     Ok(Json(run))
 }
 

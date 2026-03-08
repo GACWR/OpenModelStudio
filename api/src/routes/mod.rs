@@ -20,3 +20,10 @@ pub mod monitoring;
 pub mod automl;
 pub mod api_keys;
 pub mod sdk;
+pub mod visualizations;
+
+/// Shared query‐param filter reusable across list endpoints.
+#[derive(Debug, serde::Deserialize)]
+pub struct ProjectFilter {
+    pub project_id: Option<uuid::Uuid>,
+}

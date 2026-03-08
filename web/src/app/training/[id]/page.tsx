@@ -118,86 +118,91 @@ export default function TrainingDetailPage() {
     return Math.max(0, Math.floor((end - start) / 1000));
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchAll = useCallback(async (isInitial = false) => {
+    try {
+      const jobRes = await api.get<Job>(`/training/${jobId}`);
+      setJob(jobRes);
+      setElapsedSec(computeElapsed(jobRes.started_at, jobRes.completed_at));
 
-    async function fetchAll() {
-      try {
-        const jobRes = await api.get<Job>(`/training/${jobId}`);
-        if (cancelled) return;
-        setJob(jobRes);
-        setElapsedSec(computeElapsed(jobRes.started_at, jobRes.completed_at));
+      // Fetch metrics and artifacts in parallel
+      const [metricsRes, artifactsRes] = await Promise.all([
+        api.get<MetricRecord[]>(`/training/${jobId}/metrics`).catch(() => [] as MetricRecord[]),
+        api.get<Artifact[]>(`/jobs/${jobId}/artifacts`).catch(() => [] as Artifact[]),
+      ]);
 
-        // Fetch metrics and artifacts in parallel
-        const [metricsRes, artifactsRes] = await Promise.all([
-          api.get<MetricRecord[]>(`/training/${jobId}/metrics`).catch(() => [] as MetricRecord[]),
-          api.get<Artifact[]>(`/jobs/${jobId}/artifacts`).catch(() => [] as Artifact[]),
-        ]);
+      // Split metrics by metric_name
+      const loss: { name: string; value: number }[] = [];
+      const acc: { name: string; value: number }[] = [];
 
-        if (cancelled) return;
-
-        // Split metrics by metric_name
-        const loss: { name: string; value: number }[] = [];
-        const acc: { name: string; value: number }[] = [];
-
-        if (metricsRes && metricsRes.length > 0) {
-          for (const record of metricsRes) {
-            const point = {
-              name: (record.step ?? record.epoch ?? 0).toString(),
-              value: record.value,
-            };
-            if (record.metric_name === "loss") {
-              loss.push(point);
-            } else if (record.metric_name === "accuracy") {
-              acc.push(point);
-            }
+      if (metricsRes && metricsRes.length > 0) {
+        for (const record of metricsRes) {
+          const point = {
+            name: (record.step ?? record.epoch ?? 0).toString(),
+            value: record.value,
+          };
+          if (record.metric_name === "loss") {
+            loss.push(point);
+          } else if (record.metric_name === "accuracy") {
+            acc.push(point);
           }
         }
-
-        setLossData(loss);
-        setAccData(acc);
-        setArtifacts(artifactsRes ?? []);
-      } catch (err) {
-        if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : "Failed to load training job");
-
-          // Set a fallback job so the full UI always renders (e.g. for E2E tests)
-          const fallbackJob: Job = {
-            id: jobId,
-            project_id: "",
-            model_id: "",
-            dataset_id: null,
-            job_type: "Training Job",
-            status: "unknown",
-            k8s_job_name: null,
-            hardware_tier: "N/A",
-            hyperparameters: {},
-            metrics: null,
-            started_at: null,
-            completed_at: null,
-            error_message: null,
-            created_by: "",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            progress: 0,
-            epoch_current: null,
-            epoch_total: null,
-            loss: null,
-            learning_rate: null,
-            gpu_config: null,
-          };
-          setJob(fallbackJob);
-          setIsFallback(true);
-          setElapsedSec(0);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    }
 
-    fetchAll();
-    return () => { cancelled = true; };
+      setLossData(loss);
+      setAccData(acc);
+      setArtifacts(artifactsRes ?? []);
+    } catch (err) {
+      if (isInitial) {
+        toast.error(err instanceof Error ? err.message : "Failed to load training job");
+
+        // Set a fallback job so the full UI always renders (e.g. for E2E tests)
+        const fallbackJob: Job = {
+          id: jobId,
+          project_id: "",
+          model_id: "",
+          dataset_id: null,
+          job_type: "Training Job",
+          status: "unknown",
+          k8s_job_name: null,
+          hardware_tier: "N/A",
+          hyperparameters: {},
+          metrics: null,
+          started_at: null,
+          completed_at: null,
+          error_message: null,
+          created_by: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          progress: 0,
+          epoch_current: null,
+          epoch_total: null,
+          loss: null,
+          learning_rate: null,
+          gpu_config: null,
+        };
+        setJob(fallbackJob);
+        setIsFallback(true);
+        setElapsedSec(0);
+      }
+    } finally {
+      if (isInitial) setLoading(false);
+    }
   }, [jobId, computeElapsed]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAll(true);
+  }, [fetchAll]);
+
+  // Poll job + metrics every 3s while job is active
+  useEffect(() => {
+    if (!job) return;
+    const isActive = job.status === "running" || job.status === "pending";
+    if (!isActive) return;
+
+    const t = setInterval(() => fetchAll(false), 3000);
+    return () => clearInterval(t);
+  }, [job?.status, fetchAll]);
 
   // Tick elapsed timer every second while job is running
   useEffect(() => {
