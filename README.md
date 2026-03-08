@@ -90,15 +90,7 @@ Create, render, and publish data visualizations from notebooks or the in-browser
 | networkx | SVG | Network/graph visualizations |
 | geopandas | SVG | Geospatial maps |
 
-```python
-import openmodelstudio as oms
-
-viz = oms.create_visualization("loss-curve", backend="plotly")
-output = oms.render(fig, viz_id=viz["id"])   # auto-detects backend
-oms.publish_visualization(viz["id"])         # available for dashboards
-```
-
-Combine visualizations into **drag-and-drop dashboards** with resizable panels, lock/unlock layout, and persistent configuration. Each visualization also has a full **in-browser editor** (`/visualizations/{id}`) with Monaco, live preview for JSON backends, template insertion, and data/config tabs.
+Combine visualizations into **drag-and-drop dashboards** with resizable panels, lock/unlock layout, and persistent configuration. Each visualization also has a full **in-browser editor** with Monaco, live preview for JSON backends, template insertion, and data/config tabs. See the [Visualizations Guide](docs/VISUALIZATIONS.md) for SDK usage.
 
 <p align="center">
   <img src="docs/screenshots/oms-screenshot3.png" alt="OpenModelStudio Visualization Framework" width="100%" />
@@ -115,16 +107,7 @@ openmodelstudio install iris-svm             # Install a model
 openmodelstudio list                         # List installed models
 ```
 
-**From a notebook or script:**
-```python
-import openmodelstudio as oms
-
-iris = oms.use_model("iris-svm")                        # Load from registry
-handle = oms.register_model("my-iris", model=iris)      # Register in project
-job = oms.start_training(handle.model_id, wait=True)    # Train it
-```
-
-`use_model()` resolves via the platform API, so it works inside workspace containers (K8s pods) without filesystem access. If the model isn't installed yet, it auto-installs from the registry. The web UI registry page shows **Installed** / **Not Installed** badges that stay in sync with CLI operations.
+From notebooks or scripts, use `oms.use_model("iris-svm")` to load an installed model, then register and train it with the SDK. Works inside workspace containers via the platform API — no filesystem access needed. Install status syncs bidirectionally between CLI and UI. See the [Registry Guide](docs/CLI-REGISTRY.md) for full SDK usage.
 
 ---
 
