@@ -121,6 +121,17 @@ export default function RegistryPage() {
   const [installing, setInstalling] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
+  // Install status from API
+  const [installStatus, setInstallStatus] = useState<Record<string, boolean>>({});
+
+  const fetchInstallStatus = (modelNames: string[]) => {
+    if (modelNames.length === 0) return;
+    api
+      .get<Record<string, boolean>>(`/models/registry-status?names=${modelNames.join(",")}`)
+      .then(setInstallStatus)
+      .catch(() => {});
+  };
+
   const fetchRegistry = () => {
     setLoading(true);
     setError(null);
@@ -131,6 +142,7 @@ export default function RegistryPage() {
       })
       .then((data: RegistryIndex) => {
         setModels(data.models || []);
+        fetchInstallStatus((data.models || []).map((m) => m.name));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load registry"))
       .finally(() => setLoading(false));
@@ -169,8 +181,10 @@ export default function RegistryPage() {
         description: installModel.description,
         framework: installModel.framework,
         source_code,
+        registry_name: installModel.name,
       });
       toast.success(`Installed ${installModel.name} successfully`);
+      setInstallStatus((prev) => ({ ...prev, [installModel.name]: true }));
       setInstallOpen(false);
       setInstallModel(null);
       setInstallProject("");
@@ -393,6 +407,11 @@ export default function RegistryPage() {
                         >
                           v{model.version}
                         </Badge>
+                        {installStatus[model.name] && (
+                          <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
+                            Installed
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <motion.div

@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { Brain, Search, Plus, Terminal, Code2 } from "lucide-react";
+import { Brain, Search, Plus, Terminal, Code2, Package } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -29,6 +29,7 @@ interface Model {
   status: string;
   version: string;
   description: string;
+  registry_name: string | null;
 }
 
 const frameworkColors: Record<string, string> = {
@@ -251,6 +252,14 @@ export default function ModelsPage() {
                         <Badge variant="outline" className={frameworkColors[model.framework] || ""}>{model.framework}</Badge>
                         <Badge variant="secondary" className="bg-muted text-[10px]">v{model.version}</Badge>
                         <StatusBadge status={model.status} />
+                        {model.registry_name && (
+                          <Link href={`/registry/${encodeURIComponent(model.registry_name)}`} onClick={(e) => e.stopPropagation()}>
+                            <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[10px] gap-1 hover:bg-violet-500/20 transition-colors">
+                              <Package className="h-2.5 w-2.5" />
+                              Registry
+                            </Badge>
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </GlassCard>

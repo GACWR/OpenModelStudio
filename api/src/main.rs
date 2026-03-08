@@ -96,6 +96,7 @@ async fn main() {
         .route("/projects/{project_id}/models", get(routes::models::list))
         .route("/models", get(routes::models::list_all))
         .route("/models", post(routes::models::create))
+        .route("/models/registry-status", get(routes::models::registry_status))
         .route("/models/{id}", get(routes::models::get))
         .route("/models/{id}", put(routes::models::update))
         .route("/models/{id}", delete(routes::models::delete))

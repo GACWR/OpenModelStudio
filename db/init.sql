@@ -81,10 +81,12 @@ CREATE TABLE IF NOT EXISTS models (
     status TEXT NOT NULL DEFAULT 'draft',
     language TEXT NOT NULL DEFAULT 'Python',
     origin_workspace_id UUID,
+    registry_name TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_models_project ON models(project_id);
+CREATE INDEX IF NOT EXISTS idx_models_registry_name ON models(registry_name);
 
 CREATE TABLE IF NOT EXISTS model_versions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

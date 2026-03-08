@@ -1,7 +1,8 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::error::AppResult;
@@ -9,6 +10,36 @@ use crate::middleware::auth::AuthUser;
 use crate::models::job::JobStatus;
 use crate::models::model::*;
 use crate::AppState;
+
+/// GET /models/registry-status?names=iris-svm,mnist-cnn
+/// Returns a map of registry_name → installed (boolean).
+#[derive(Debug, serde::Deserialize)]
+pub struct RegistryStatusQuery {
+    pub names: String,
+}
+
+pub async fn registry_status(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Query(q): Query<RegistryStatusQuery>,
+) -> AppResult<Json<HashMap<String, bool>>> {
+    let names: Vec<&str> = q.names.split(',').filter(|s| !s.is_empty()).collect();
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT registry_name FROM models WHERE registry_name = ANY($1)"
+    )
+    .bind(&names)
+    .fetch_all(&state.db)
+    .await?;
+
+    let installed: std::collections::HashSet<String> =
+        rows.into_iter().map(|r| r.0).collect();
+    let result: HashMap<String, bool> = names
+        .iter()
+        .map(|n| (n.to_string(), installed.contains(*n)))
+        .collect();
+
+    Ok(Json(result))
+}
 
 pub async fn list(
     State(state): State<AppState>,

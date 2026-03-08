@@ -126,8 +126,18 @@ export default function RegistryModelDetailPage() {
   const [installing, setInstalling] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
 
+  // Install status
+  const [isInstalled, setIsInstalled] = useState(false);
+
   // Copy state
   const [copied, setCopied] = useState(false);
+
+  const refreshInstallStatus = () => {
+    api
+      .get<Record<string, boolean>>(`/models/registry-status?names=${modelName}`)
+      .then((status) => setIsInstalled(status[modelName] ?? false))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -148,6 +158,7 @@ export default function RegistryModelDetailPage() {
         }
         setModel(found);
         setProjects(projs);
+        refreshInstallStatus();
 
         // Fetch source code for all files
         const files = found.files || ["model.py"];
@@ -194,8 +205,10 @@ export default function RegistryModelDetailPage() {
         description: model.description,
         framework: model.framework,
         source_code,
+        registry_name: model.name,
       });
       toast.success(`Installed ${model.name} successfully`);
+      setIsInstalled(true);
       setInstallOpen(false);
     } catch (err) {
       toast.error(
@@ -281,6 +294,11 @@ export default function RegistryModelDetailPage() {
               <Badge variant="secondary" className="bg-muted text-[10px]">
                 v{model.version}
               </Badge>
+              {isInstalled && (
+                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
+                  Installed
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
@@ -311,7 +329,7 @@ export default function RegistryModelDetailPage() {
                 className="gap-2 bg-white text-black hover:bg-white/90 shadow-lg shadow-white/10"
                 onClick={() => setInstallOpen(true)}
               >
-                <Download className="h-4 w-4" /> Install
+                <Download className="h-4 w-4" /> {isInstalled ? "Install to Project" : "Install"}
               </Button>
             </motion.div>
           </div>

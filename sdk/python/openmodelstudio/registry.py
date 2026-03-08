@@ -97,11 +97,12 @@ def registry_info(name: str, registry_url: str = None) -> dict:
 
 
 def registry_install(name: str, registry_url: str = None, models_dir: str = None,
-                     force: bool = False) -> Path:
+                     force: bool = False, project_id: str = None,
+                     api_url: str = None, token: str = None) -> Path:
     """Install a model from the registry.
 
-    Downloads the model files to the local models directory and makes
-    them available for import and registration.
+    Downloads the model files to the local models directory and registers
+    the model with the platform API (if reachable).
 
     Examples::
 
@@ -113,6 +114,9 @@ def registry_install(name: str, registry_url: str = None, models_dir: str = None
         registry_url: Override default registry URL
         models_dir: Override default models directory
         force: Overwrite existing installation
+        project_id: Optional project UUID to associate the model with
+        api_url: Override API URL (defaults to env/config)
+        token: Override auth token (defaults to env/config)
 
     Returns:
         Path to the installed model directory
@@ -146,7 +150,50 @@ def registry_install(name: str, registry_url: str = None, models_dir: str = None
     # Write manifest locally
     (model_dir / "model.json").write_text(json.dumps(info, indent=2))
 
+    # Register with the platform API so the model appears on the Models page
+    _api_url = api_url or os.environ.get("OPENMODELSTUDIO_API_URL") or _load_api_url()
+    _token = token or os.environ.get("OPENMODELSTUDIO_TOKEN")
+
+    if _api_url:
+        try:
+            main_file = files[0]
+            source_code = (model_dir / main_file).read_text()
+
+            headers = {"Content-Type": "application/json"}
+            if _token:
+                headers["Authorization"] = f"Bearer {_token}"
+
+            body = {
+                "name": name,
+                "framework": info.get("framework", "pytorch"),
+                "description": info.get("description"),
+                "source_code": source_code,
+                "registry_name": name,
+            }
+            if project_id:
+                body["project_id"] = project_id
+
+            resp = requests.post(
+                f"{_api_url}/sdk/register-model",
+                json=body, headers=headers, timeout=30,
+            )
+            if resp.ok:
+                print(f"  Registered '{name}' with platform")
+            else:
+                print(f"  Warning: Could not register with platform ({resp.status_code})")
+        except Exception as e:
+            print(f"  Warning: Could not register with platform: {e}")
+
     return model_dir
+
+
+def _load_api_url() -> str:
+    """Try to load api_url from the config file."""
+    try:
+        from .config import get_config
+        return get_config().get("api_url", "")
+    except Exception:
+        return ""
 
 
 def registry_uninstall(name: str, models_dir: str = None) -> bool:

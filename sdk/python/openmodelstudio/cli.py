@@ -37,15 +37,22 @@ def _print_table(rows: list, headers: list):
 
 
 def cmd_install(args):
-    from .config import require_project_root, get_project_models_dir
+    from .config import require_project_root, get_project_models_dir, get_config
     from .registry import registry_install
 
     require_project_root()
     models_dir = get_project_models_dir()
+    cfg = get_config()
     name = args.name
     print(f"Installing '{name}' from registry...")
     try:
-        path = registry_install(name, force=args.force, models_dir=str(models_dir))
+        path = registry_install(
+            name,
+            force=args.force,
+            models_dir=str(models_dir),
+            project_id=getattr(args, "project", None),
+            api_url=cfg.get("api_url"),
+        )
         print(f"Installed to {path}")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -184,6 +191,7 @@ def main():
     p_install = subparsers.add_parser("install", help="Install a model from the registry")
     p_install.add_argument("name", help="Model name (e.g. titanic-rf)")
     p_install.add_argument("--force", "-f", action="store_true", help="Overwrite existing")
+    p_install.add_argument("--project", "-p", help="Project ID to install into")
     p_install.set_defaults(func=cmd_install)
 
     # uninstall

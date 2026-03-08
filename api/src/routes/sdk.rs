@@ -24,6 +24,7 @@ pub struct SdkRegisterModelRequest {
     pub description: Option<String>,
     pub source_code: Option<String>,
     pub project_id: Option<Uuid>,
+    pub registry_name: Option<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -42,25 +43,38 @@ pub async fn register_model(
     let project_id = req.project_id.unwrap_or_else(Uuid::nil);
     let workspace_id: Option<Uuid> = None;
 
-    // Check if a model with the same name already exists in this project
-    let existing: Option<crate::models::model::Model> = sqlx::query_as(
-        "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
-    )
-    .bind(&req.name)
-    .bind(project_id)
-    .fetch_optional(&state.db)
-    .await?;
+    // Check if a model with the same name (or registry_name) already exists in this project
+    let existing: Option<crate::models::model::Model> = if req.registry_name.is_some() {
+        sqlx::query_as(
+            "SELECT * FROM models WHERE registry_name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+        )
+        .bind(&req.registry_name)
+        .bind(project_id)
+        .fetch_optional(&state.db)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT * FROM models WHERE name = $1 AND project_id = $2 ORDER BY version DESC LIMIT 1"
+        )
+        .bind(&req.name)
+        .bind(project_id)
+        .fetch_optional(&state.db)
+        .await?
+    };
+
+    let from_registry = req.registry_name.is_some();
 
     let (model_id, new_version) = if let Some(existing_model) = existing {
         // Update existing model with new version
         let new_ver = existing_model.version + 1;
         let model: crate::models::model::Model = sqlx::query_as(
-            "UPDATE models SET source_code = $1, framework = $2, description = COALESCE($3, description), version = $4, updated_at = NOW() WHERE id = $5 RETURNING *"
+            "UPDATE models SET source_code = $1, framework = $2, description = COALESCE($3, description), version = $4, registry_name = COALESCE($5, registry_name), updated_at = NOW() WHERE id = $6 RETURNING *"
         )
         .bind(&req.source_code)
         .bind(&framework)
         .bind(&req.description)
         .bind(new_ver)
+        .bind(&req.registry_name)
         .bind(existing_model.id)
         .fetch_one(&state.db)
         .await?;
@@ -69,8 +83,8 @@ pub async fn register_model(
         // Create new model
         let model_id = Uuid::new_v4();
         let model: crate::models::model::Model = sqlx::query_as(
-            "INSERT INTO models (id, project_id, name, description, framework, source_code, version, created_by, status, language, origin_workspace_id, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'draft', 'Python', $8, NOW(), NOW()) RETURNING *"
+            "INSERT INTO models (id, project_id, name, description, framework, source_code, version, created_by, status, language, origin_workspace_id, registry_name, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 1, $7, 'draft', 'Python', $8, $9, NOW(), NOW()) RETURNING *"
         )
         .bind(model_id)
         .bind(project_id)
@@ -80,6 +94,7 @@ pub async fn register_model(
         .bind(&req.source_code)
         .bind(claims.sub)
         .bind(workspace_id)
+        .bind(&req.registry_name)
         .fetch_one(&state.db)
         .await?;
         (model.id, 1)
@@ -97,7 +112,11 @@ pub async fn register_model(
         .bind(&req.source_code)
         .bind(claims.sub)
         .bind(workspace_id)
-        .bind(if new_version == 1 { "Initial version from workspace" } else { "Updated from workspace" })
+        .bind(if from_registry {
+            if new_version == 1 { "Installed from registry" } else { "Updated from registry" }
+        } else {
+            if new_version == 1 { "Initial version from workspace" } else { "Updated from workspace" }
+        })
         .execute(&state.db)
         .await?;
     }

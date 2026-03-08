@@ -18,6 +18,7 @@ pub struct Model {
     pub status: String,
     pub language: String,
     pub origin_workspace_id: Option<Uuid>,
+    pub registry_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
