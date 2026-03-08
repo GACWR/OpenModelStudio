@@ -168,11 +168,11 @@ export function NotificationPanel() {
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-96 p-0 border bg-background/95 backdrop-blur-xl"
+        className="w-96 p-0 border bg-popover shadow-xl"
         sideOffset={8}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b px-4 py-3 bg-popover rounded-t-md">
           <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
           <div className="flex items-center gap-1">
             {unreadCount > 0 && (
@@ -197,15 +197,15 @@ export function NotificationPanel() {
           </div>
         </div>
 
-        {/* Body */}
-        <ScrollArea className="max-h-[400px]">
+        {/* Body — fixed max height, self-contained scrolling */}
+        <ScrollArea className="h-[min(400px,60vh)]">
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Bell className="h-8 w-8 mb-2 opacity-30" />
               <p className="text-sm">No notifications yet</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-border/50">
               {renderGroup("Today", groups.today, handleClick)}
               {renderGroup("This Week", groups.thisWeek, handleClick)}
               {renderGroup("Earlier", groups.earlier, handleClick)}
@@ -225,7 +225,7 @@ function renderGroup(
   if (items.length === 0) return null;
   return (
     <div>
-      <div className="sticky top-0 bg-background/90 backdrop-blur px-4 py-1.5">
+      <div className="sticky top-0 z-10 bg-popover px-4 py-1.5 border-b border-border/30">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
