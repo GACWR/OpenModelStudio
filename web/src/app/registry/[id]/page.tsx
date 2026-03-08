@@ -14,6 +14,7 @@ import {
   Package,
   ArrowLeft,
   Download,
+  Trash2,
   User,
   Tag,
   ExternalLink,
@@ -219,6 +220,16 @@ export default function RegistryModelDetailPage() {
     }
   };
 
+  const handleUninstall = async () => {
+    try {
+      await api.post("/models/registry-uninstall", { name: modelName });
+      toast.success(`Uninstalled ${modelName}`);
+      setIsInstalled(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to uninstall");
+    }
+  };
+
   const handleCopyInstall = () => {
     navigator.clipboard.writeText(`openmodelstudio install ${modelName}`);
     setCopied(true);
@@ -294,9 +305,13 @@ export default function RegistryModelDetailPage() {
               <Badge variant="secondary" className="bg-muted text-[10px]">
                 v{model.version}
               </Badge>
-              {isInstalled && (
+              {isInstalled ? (
                 <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
                   Installed
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground/50 text-[10px]">
+                  Not Installed
                 </Badge>
               )}
             </div>
@@ -324,12 +339,23 @@ export default function RegistryModelDetailPage() {
                 </Button>
               </motion.div>
             )}
+            {isInstalled && (
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  variant="outline"
+                  className="gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  onClick={handleUninstall}
+                >
+                  <Trash2 className="h-4 w-4" /> Uninstall
+                </Button>
+              </motion.div>
+            )}
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
               <Button
                 className="gap-2 bg-white text-black hover:bg-white/90 shadow-lg shadow-white/10"
                 onClick={() => setInstallOpen(true)}
               >
-                <Download className="h-4 w-4" /> {isInstalled ? "Install to Project" : "Install"}
+                <Download className="h-4 w-4" /> {isInstalled ? "Reinstall" : "Install"}
               </Button>
             </motion.div>
           </div>

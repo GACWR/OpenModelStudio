@@ -154,6 +154,14 @@ def registry_install(name: str, registry_url: str = None, models_dir: str = None
     _api_url = api_url or os.environ.get("OPENMODELSTUDIO_API_URL") or _load_api_url()
     _token = token or os.environ.get("OPENMODELSTUDIO_TOKEN")
 
+    # Auto-detect local platform if no api_url is configured
+    if not _api_url:
+        _api_url = _auto_detect_api_url()
+
+    # Auto-login if we have an api_url but no token
+    if _api_url and not _token:
+        _token = _auto_login(_api_url)
+
     if _api_url:
         try:
             main_file = files[0]
@@ -196,6 +204,32 @@ def _load_api_url() -> str:
         return ""
 
 
+def _auto_detect_api_url() -> str:
+    """Auto-detect local platform API (K8s NodePort at localhost:31001)."""
+    try:
+        resp = requests.get("http://localhost:31001/healthz", timeout=2)
+        if resp.ok:
+            return "http://localhost:31001"
+    except Exception:
+        pass
+    return ""
+
+
+def _auto_login(api_url: str) -> str:
+    """Auto-login with default credentials to get a token for registration."""
+    try:
+        resp = requests.post(
+            f"{api_url}/auth/login",
+            json={"email": "test@openmodel.studio", "password": "Test1234"},
+            timeout=10,
+        )
+        if resp.ok:
+            return resp.json().get("access_token", "")
+    except Exception:
+        pass
+    return ""
+
+
 def registry_uninstall(name: str, models_dir: str = None,
                        api_url: str = None, token: str = None) -> bool:
     """Uninstall a locally installed model.
@@ -222,6 +256,10 @@ def registry_uninstall(name: str, models_dir: str = None,
     # Also unregister from platform API
     _api_url = api_url or os.environ.get("OPENMODELSTUDIO_API_URL") or _load_api_url()
     _token = token or os.environ.get("OPENMODELSTUDIO_TOKEN")
+    if not _api_url:
+        _api_url = _auto_detect_api_url()
+    if _api_url and not _token:
+        _token = _auto_login(_api_url)
     if _api_url:
         try:
             headers = {"Content-Type": "application/json"}

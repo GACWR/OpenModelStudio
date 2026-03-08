@@ -1374,7 +1374,7 @@ pub async fn create_sweep(
     Json(req): Json<CreateSweepRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let model = resolve_model_id(&state.db, &req.model_id).await?;
-    let project_id = req.project_id.unwrap_or(model.project_id);
+    let project_id = req.project_id.or(model.project_id);
 
     let dataset_id = if let Some(ref ds) = req.dataset_id {
         Some(resolve_dataset_id(&state.db, ds).await?)
