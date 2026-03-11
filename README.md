@@ -96,6 +96,11 @@ Combine visualizations into **drag-and-drop dashboards** with resizable panels, 
   <img src="docs/screenshots/oms-screenshot3.png" alt="OpenModelStudio Visualization Framework" width="100%" />
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/oms-screenshot4.png" alt="OpenModelStudio Visualization Framework" width="100%" />
+</p>
+
+
 ### Model Registry
 
 Browse, install, and manage models from the [Open Model Registry](https://github.com/GACWR/open-model-registry) -- a public GitHub repo that acts as a decentralized model package manager.
