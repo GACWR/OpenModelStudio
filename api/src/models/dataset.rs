@@ -15,9 +15,10 @@ pub struct Dataset {
     pub row_count: Option<i64>,
     pub version: i32,
     pub created_by: Uuid,
+    pub snapshots: i32,
+    pub schema: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub snapshots: i32,
 }
 
 #[derive(Debug, Deserialize)]

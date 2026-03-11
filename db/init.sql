@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS datasets (
     version INT NOT NULL DEFAULT 1,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     snapshots INT NOT NULL DEFAULT 0,
+    schema JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
