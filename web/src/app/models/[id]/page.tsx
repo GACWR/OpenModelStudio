@@ -94,6 +94,15 @@ interface ArtifactItem {
   created_at: string;
 }
 
+interface ExperimentRunItem {
+  id: string;
+  experiment_id: string;
+  model_id: string | null;
+  parameters: Record<string, unknown> | null;
+  metrics: Record<string, number> | null;
+  created_at: string;
+}
+
 function formatBytes(bytes: number | null): string {
   if (!bytes) return "—";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -136,6 +145,7 @@ export default function ModelDetailPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [metricsData, setMetricsData] = useState<Record<string, { name: string; value: number }[]>>({});
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
+  const [experimentRuns, setExperimentRuns] = useState<ExperimentRunItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -144,12 +154,13 @@ export default function ModelDetailPage() {
 
     async function fetchAll() {
       try {
-        const [modelRes, codeRes, versionsRes, allJobsRes, artifactsRes] = await Promise.all([
+        const [modelRes, codeRes, versionsRes, allJobsRes, artifactsRes, expRunsRes] = await Promise.all([
           api.get<ModelData>(`/models/${modelId}`),
           api.get<CodeResponse>(`/models/${modelId}/code`).catch(() => null),
           api.get<ModelVersion[]>(`/models/${modelId}/versions`).catch(() => [] as ModelVersion[]),
           api.get<Job[]>("/training/jobs").catch(() => [] as Job[]),
           api.get<ArtifactItem[]>(`/models/${modelId}/artifacts`).catch(() => [] as ArtifactItem[]),
+          api.get<ExperimentRunItem[]>(`/models/${modelId}/experiment-runs`).catch(() => [] as ExperimentRunItem[]),
         ]);
 
         if (cancelled) return;
@@ -158,6 +169,7 @@ export default function ModelDetailPage() {
         setCode(codeRes?.source_code ?? "");
         setVersions(versionsRes ?? []);
         setArtifacts(artifactsRes ?? []);
+        setExperimentRuns(expRunsRes ?? []);
 
         const modelJobs = (allJobsRes ?? []).filter((j) => j.model_id === modelId);
         setJobs(modelJobs);
@@ -593,54 +605,197 @@ export default function ModelDetailPage() {
           </TabsContent>
 
           <TabsContent value="metrics" forceMount={activeTab === "metrics" ? true : undefined} className={activeTab !== "metrics" ? "hidden" : ""}>
-            {metricNames.length === 0 ? (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader>
-                    <CardTitle className="text-base">Training Loss</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <EmptyState
-                      icon={BarChart3}
-                      title="No loss data"
-                      description="Loss metrics will appear here once a job starts reporting data."
-                    />
-                  </CardContent>
-                </Card>
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader>
-                    <CardTitle className="text-base">Accuracy</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <EmptyState
-                      icon={BarChart3}
-                      title="No accuracy data"
-                      description="Accuracy metrics will appear here once a job starts reporting data."
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {metricNames.map((name) => {
-                  const color = name.toLowerCase().includes("loss")
-                    ? "#ef4444"
-                    : name.toLowerCase().includes("acc")
-                      ? "#10b981"
-                      : "#d4d4d4";
-                  return (
-                    <Card key={name} className="border-border/50 bg-card/50">
+            {(() => {
+              // Collect experiment run metrics for this model
+              const expMetrics = experimentRuns
+                .filter((r) => r.metrics && Object.keys(r.metrics).length > 0)
+                .map((r) => r.metrics as Record<string, number>);
+              const hasJobMetrics = metricNames.length > 0;
+              const hasExpMetrics = expMetrics.length > 0;
+
+              if (!hasJobMetrics && !hasExpMetrics) {
+                return (
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <Card className="border-border/50 bg-card/50">
                       <CardHeader>
-                        <CardTitle className="text-base capitalize">{name.replace(/_/g, " ")}</CardTitle>
+                        <CardTitle className="text-base">Training Loss</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <MetricChart data={metricsData[name]} color={color} height={300} />
+                        <EmptyState
+                          icon={BarChart3}
+                          title="No loss data"
+                          description="Loss metrics will appear here once a job starts reporting data."
+                        />
                       </CardContent>
                     </Card>
-                  );
-                })}
-              </div>
-            )}
+                    <Card className="border-border/50 bg-card/50">
+                      <CardHeader>
+                        <CardTitle className="text-base">Accuracy</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <EmptyState
+                          icon={BarChart3}
+                          title="No accuracy data"
+                          description="Accuracy metrics will appear here once a job starts reporting data."
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              }
+
+              // Merge: get all unique metric keys from experiment runs
+              const expMetricKeys = hasExpMetrics
+                ? [...new Set(expMetrics.flatMap((m) => Object.keys(m)))]
+                    .sort((a, b) => {
+                      // Sort: train first, then val, then test, then others
+                      const order = (k: string) =>
+                        k.startsWith("train") ? 0 : k.startsWith("val") ? 1 : k.startsWith("test") ? 2 : k.startsWith("best") ? 3 : 4;
+                      return order(a) - order(b);
+                    })
+                : [];
+
+              // Color function
+              const metricColor = (key: string) => {
+                const k = key.toLowerCase();
+                if (k.includes("loss")) return "#ef4444";
+                if (k.includes("train")) return "#8b5cf6";
+                if (k.includes("val")) return "#f59e0b";
+                if (k.includes("test")) return "#10b981";
+                if (k.includes("f1")) return "#3b82f6";
+                if (k.includes("acc")) return "#10b981";
+                return "#d4d4d4";
+              };
+
+              return (
+                <div className="space-y-6">
+                  {/* Experiment run metrics (snapshot from notebook) */}
+                  {hasExpMetrics && (
+                    <>
+                      <Card className="border-border/50 bg-card/50">
+                        <CardHeader>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" /> Experiment Metrics
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {expMetricKeys.map((key) => {
+                              const val = expMetrics[0][key];
+                              if (val === undefined) return null;
+                              const isPercent = key.includes("accuracy") || key.includes("acc") || key.includes("f1");
+                              return (
+                                <motion.div
+                                  key={key}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="rounded-lg border border-border/50 bg-black/20 p-4"
+                                >
+                                  <p className="text-[11px] text-muted-foreground capitalize mb-1">
+                                    {key.replace(/_/g, " ")}
+                                  </p>
+                                  <p className="text-2xl font-bold" style={{ color: metricColor(key) }}>
+                                    {isPercent ? `${(val * 100).toFixed(1)}%` : val.toFixed(4)}
+                                  </p>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Bar chart for accuracy/f1 metrics */}
+                      {(() => {
+                        const accKeys = expMetricKeys.filter(
+                          (k) => k.includes("accuracy") || k.includes("acc") || k.includes("f1")
+                        );
+                        if (accKeys.length === 0) return null;
+                        const maxVal = Math.max(...accKeys.map((k) => expMetrics[0][k] ?? 0));
+                        return (
+                          <Card className="border-border/50 bg-card/50">
+                            <CardHeader>
+                              <CardTitle className="text-base">Performance Summary</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                {accKeys.map((key, i) => {
+                                  const val = expMetrics[0][key] ?? 0;
+                                  const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                                  return (
+                                    <motion.div
+                                      key={key}
+                                      initial={{ opacity: 0, x: -20 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: i * 0.05 }}
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm text-muted-foreground capitalize">
+                                          {key.replace(/_/g, " ")}
+                                        </span>
+                                        <span className="text-sm font-mono font-bold" style={{ color: metricColor(key) }}>
+                                          {(val * 100).toFixed(2)}%
+                                        </span>
+                                      </div>
+                                      <div className="h-3 rounded-full bg-white/5 overflow-hidden">
+                                        <motion.div
+                                          className="h-full rounded-full"
+                                          style={{ backgroundColor: metricColor(key) }}
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${pct}%` }}
+                                          transition={{ duration: 0.8, delay: i * 0.05, ease: "easeOut" }}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Parameters if available */}
+                              {experimentRuns[0]?.parameters && Object.keys(experimentRuns[0].parameters).length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-border/50">
+                                  <p className="text-sm text-muted-foreground mb-2">Hyperparameters</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {Object.entries(experimentRuns[0].parameters as Record<string, unknown>).map(([k, v]) => (
+                                      <div key={k} className="rounded bg-black/20 px-2.5 py-1.5">
+                                        <span className="text-[10px] text-muted-foreground">{k}</span>
+                                        <p className="text-xs font-mono text-foreground">{String(v)}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })()}
+                    </>
+                  )}
+
+                  {/* Time-series job metrics (from K8s training) */}
+                  {hasJobMetrics && (
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                      {metricNames.map((name) => {
+                        const color = name.toLowerCase().includes("loss")
+                          ? "#ef4444"
+                          : name.toLowerCase().includes("acc")
+                            ? "#10b981"
+                            : "#d4d4d4";
+                        return (
+                          <Card key={name} className="border-border/50 bg-card/50">
+                            <CardHeader>
+                              <CardTitle className="text-base capitalize">{name.replace(/_/g, " ")}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <MetricChart data={metricsData[name]} color={color} height={300} />
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </TabsContent>
           </motion.div>
           </AnimatePresence>

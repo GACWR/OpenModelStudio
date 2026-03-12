@@ -248,6 +248,22 @@ pub async fn list_versions(
     Ok(Json(versions))
 }
 
+/// GET /models/{id}/experiment-runs
+/// Returns experiment runs linked to this model (from notebook training).
+pub async fn experiment_runs(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<Vec<crate::models::experiment::ExperimentRun>>> {
+    let runs: Vec<crate::models::experiment::ExperimentRun> = sqlx::query_as(
+        "SELECT * FROM experiment_runs WHERE model_id = $1 ORDER BY created_at DESC"
+    )
+    .bind(id)
+    .fetch_all(&state.db)
+    .await?;
+    Ok(Json(runs))
+}
+
 pub async fn run_model(
     State(state): State<AppState>,
     AuthUser(claims): AuthUser,

@@ -109,6 +109,7 @@ async fn main() {
         .route("/models/{id}/code", put(routes::models::update_code))
         .route("/models/{id}/run", post(routes::models::run_model))
         .route("/models/{id}/versions", get(routes::models::list_versions))
+        .route("/models/{id}/experiment-runs", get(routes::models::experiment_runs))
         // Training
         .route("/training/jobs", get(routes::training::list_all_jobs))
         .route("/training/start", post(routes::training::start))
