@@ -36,13 +36,9 @@ RUN mkdir -p /workspace/models && chown -R ${NB_UID}:${NB_GID} /workspace
 COPY workspace/welcome.ipynb /workspace/welcome.ipynb
 COPY workspace/visualization.ipynb /workspace/visualization.ipynb
 COPY workspace/registry.ipynb /workspace/registry.ipynb
-COPY workspace/ml-experiments.ipynb /workspace/ml-experiments.ipynb
-COPY workspace/3d-exploration.ipynb /workspace/3d-exploration.ipynb
 RUN chown ${NB_UID}:${NB_GID} /workspace/welcome.ipynb \
     /workspace/visualization.ipynb \
-    /workspace/registry.ipynb \
-    /workspace/ml-experiments.ipynb \
-    /workspace/3d-exploration.ipynb
+    /workspace/registry.ipynb
 
 USER ${NB_UID}
 WORKDIR /workspace
