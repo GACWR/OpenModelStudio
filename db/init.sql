@@ -195,7 +195,8 @@ CREATE TABLE IF NOT EXISTS experiments (
 CREATE TABLE IF NOT EXISTS experiment_runs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     experiment_id UUID NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
-    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
+    model_id UUID REFERENCES models(id) ON DELETE SET NULL,
     parameters JSONB,
     metrics JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()

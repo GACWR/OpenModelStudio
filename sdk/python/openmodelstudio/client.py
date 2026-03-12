@@ -1599,6 +1599,7 @@ class Client:
         self,
         experiment_id: str,
         job_id: str = None,
+        model_id: str = None,
         parameters: dict = None,
         metrics: dict = None,
     ) -> dict:
@@ -1609,15 +1610,22 @@ class Client:
             openmodelstudio.add_experiment_run(exp["id"], job_id=job["id"],
                 parameters={"lr": 0.001}, metrics={"accuracy": 0.95})
 
+            # For in-process training (no K8s job), use model_id instead:
+            openmodelstudio.add_experiment_run(exp["id"], model_id=mid,
+                parameters={"lr": 0.001}, metrics={"accuracy": 0.95})
+
         Args:
             experiment_id: UUID of the experiment
-            job_id: UUID of the associated training job
+            job_id: UUID of the associated training job (for K8s jobs)
+            model_id: UUID of the associated model (for in-process training)
             parameters: Dict of hyperparameters used in this run
             metrics: Dict of final metrics for this run
         """
         body = {}
         if job_id:
             body["job_id"] = job_id
+        if model_id:
+            body["model_id"] = model_id
         if parameters:
             body["parameters"] = parameters
         if metrics:

@@ -58,7 +58,12 @@ pub async fn launch(
     .map_err(|e| AppError::Internal(format!("Failed to create workspace token: {e}")))?;
 
     let (pod_name, access_url) = if let Some(ref k8s) = state.k8s {
-        k8s.create_workspace_pod(ws_id, &docker_image, &hardware_tier, req.project_id, &workspace_token)
+        // Create a persistent volume for workspace files
+        let pvc_name = k8s.create_workspace_pvc(ws_id)
+            .await
+            .map_err(|e| AppError::Internal(format!("K8s PVC error: {e}")))?;
+
+        k8s.create_workspace_pod(ws_id, &docker_image, &hardware_tier, req.project_id, &workspace_token, &pvc_name)
             .await
             .map_err(|e| AppError::Internal(format!("K8s error: {e}")))?
     } else {
@@ -111,9 +116,11 @@ pub async fn stop(
 
     if let (Some(ref k8s), Some(ref pod_name)) = (&state.k8s, &ws.pod_name) {
         let _ = k8s.delete_pod(pod_name).await;
+        // Also clean up the PVC since this is a permanent delete
+        let _ = k8s.delete_workspace_pvc(ws.id).await;
     }
 
-    sqlx::query("UPDATE workspaces SET status = 'stopped', updated_at = NOW() WHERE id = $1")
+    sqlx::query("DELETE FROM workspaces WHERE id = $1")
         .bind(id)
         .execute(&state.db)
         .await?;

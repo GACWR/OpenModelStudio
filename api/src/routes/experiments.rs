@@ -81,12 +81,13 @@ pub async fn add_run(
     Json(req): Json<AddRunRequest>,
 ) -> AppResult<Json<ExperimentRun>> {
     let run: ExperimentRun = sqlx::query_as(
-        "INSERT INTO experiment_runs (id, experiment_id, job_id, parameters, metrics, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *"
+        "INSERT INTO experiment_runs (id, experiment_id, job_id, model_id, parameters, metrics, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *"
     )
     .bind(Uuid::new_v4())
     .bind(experiment_id)
     .bind(req.job_id)
+    .bind(req.model_id)
     .bind(&req.parameters)
     .bind(&req.metrics)
     .fetch_one(&state.db)

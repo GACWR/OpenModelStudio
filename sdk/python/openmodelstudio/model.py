@@ -356,7 +356,7 @@ def get_experiment(experiment_id: str) -> dict:
 
 
 def add_experiment_run(
-    experiment_id: str, job_id: str = None,
+    experiment_id: str, job_id: str = None, model_id: str = None,
     parameters: dict = None, metrics: dict = None,
 ) -> dict:
     """Add a run to an experiment.
@@ -365,9 +365,14 @@ def add_experiment_run(
 
         openmodelstudio.add_experiment_run(exp["id"], job_id=job["id"],
             parameters={"lr": 0.001}, metrics={"accuracy": 0.95})
+
+        # For in-process training (no K8s job), use model_id:
+        openmodelstudio.add_experiment_run(exp["id"], model_id=mid,
+            parameters={"lr": 0.001}, metrics={"accuracy": 0.95})
     """
     return _get_client().add_experiment_run(
-        experiment_id, job_id=job_id, parameters=parameters, metrics=metrics,
+        experiment_id, job_id=job_id, model_id=model_id,
+        parameters=parameters, metrics=metrics,
     )
 
 

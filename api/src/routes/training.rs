@@ -46,33 +46,33 @@ pub async fn start(
     .fetch_one(&state.db)
     .await?;
 
-    // Create K8s job (best-effort)
-    if let Some(ref k8s) = state.k8s {
-        match k8s
-            .create_training_job(
-                job_id,
-                req.model_id,
-                &model.framework,
-                &hardware_tier,
-                req.dataset_id,
-                req.hyperparameters.as_ref(),
-                "training",
-            )
-            .await
-        {
-            Ok(k8s_name) => {
-                sqlx::query("UPDATE jobs SET k8s_job_name = $1, status = $2, started_at = NOW(), updated_at = NOW() WHERE id = $3")
-                    .bind(&k8s_name)
-                    .bind(JobStatus::Running)
-                    .bind(job_id)
-                    .execute(&state.db)
-                    .await?;
-            }
-            Err(e) => {
-                tracing::warn!("K8s job creation failed: {e}");
-            }
-        }
-    }
+    // Create K8s job — fail if K8s is not available
+    let k8s = state.k8s.as_ref().ok_or_else(|| {
+        AppError::Internal("K8s service not available. Training jobs cannot be created.".into())
+    })?;
+
+    let k8s_name = k8s
+        .create_training_job(
+            job_id,
+            req.model_id,
+            &model.framework,
+            &hardware_tier,
+            req.dataset_id,
+            req.hyperparameters.as_ref(),
+            "training",
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("K8s job creation failed: {e}");
+            AppError::Internal(format!("Failed to create K8s job: {e}"))
+        })?;
+
+    sqlx::query("UPDATE jobs SET k8s_job_name = $1, status = $2, started_at = NOW(), updated_at = NOW() WHERE id = $3")
+        .bind(&k8s_name)
+        .bind(JobStatus::Running)
+        .bind(job_id)
+        .execute(&state.db)
+        .await?;
 
     notify(&state.db, claims.sub, "Training Started", &format!("Training job started on {}", hardware_tier), NotifyType::Info, Some(&format!("/training/{}", job_id))).await;
     Ok(Json(job))

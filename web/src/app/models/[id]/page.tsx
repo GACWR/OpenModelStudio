@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion, AnimatePresence } from "framer-motion";
-import { Save, Play, Brain, GitBranch, BarChart3, Info, Terminal, ExternalLink } from "lucide-react";
+import { Save, Play, Brain, GitBranch, BarChart3, Info, Terminal, ExternalLink, Download, FileBox } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -86,6 +86,26 @@ interface MetricRecord {
   recorded_at: string;
 }
 
+interface ArtifactItem {
+  id: string;
+  name: string;
+  artifact_type: string;
+  size_bytes: number | null;
+  created_at: string;
+}
+
+function formatBytes(bytes: number | null): string {
+  if (!bytes) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = bytes;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(1)} ${units[i]}`;
+}
+
 const frameworkColors: Record<string, string> = {
   pytorch: "bg-orange-500/10 text-orange-400 border-orange-500/20",
   tensorflow: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -115,6 +135,7 @@ export default function ModelDetailPage() {
   const [versions, setVersions] = useState<ModelVersion[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [metricsData, setMetricsData] = useState<Record<string, { name: string; value: number }[]>>({});
+  const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -123,11 +144,12 @@ export default function ModelDetailPage() {
 
     async function fetchAll() {
       try {
-        const [modelRes, codeRes, versionsRes, allJobsRes] = await Promise.all([
+        const [modelRes, codeRes, versionsRes, allJobsRes, artifactsRes] = await Promise.all([
           api.get<ModelData>(`/models/${modelId}`),
           api.get<CodeResponse>(`/models/${modelId}/code`).catch(() => null),
           api.get<ModelVersion[]>(`/models/${modelId}/versions`).catch(() => [] as ModelVersion[]),
           api.get<Job[]>("/training/jobs").catch(() => [] as Job[]),
+          api.get<ArtifactItem[]>(`/models/${modelId}/artifacts`).catch(() => [] as ArtifactItem[]),
         ]);
 
         if (cancelled) return;
@@ -135,6 +157,7 @@ export default function ModelDetailPage() {
         setModel(modelRes);
         setCode(codeRes?.source_code ?? "");
         setVersions(versionsRes ?? []);
+        setArtifacts(artifactsRes ?? []);
 
         const modelJobs = (allJobsRes ?? []).filter((j) => j.model_id === modelId);
         setJobs(modelJobs);
@@ -247,6 +270,7 @@ export default function ModelDetailPage() {
             <TabsTrigger value="code">Code</TabsTrigger>
             <TabsTrigger value="versions">Versions</TabsTrigger>
             <TabsTrigger value="jobs">Jobs</TabsTrigger>
+            <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
             <TabsTrigger value="metrics">Metrics</TabsTrigger>
           </TabsList>
 
@@ -476,6 +500,59 @@ export default function ModelDetailPage() {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="artifacts" forceMount={activeTab === "artifacts" ? true : undefined} className={activeTab !== "artifacts" ? "hidden" : ""}>
+            <Card className="border-border/50 bg-card/50">
+              <CardContent className="p-0">
+                {artifacts.length === 0 ? (
+                  <EmptyState
+                    icon={FileBox}
+                    title="No artifacts yet"
+                    description="Train the model to generate downloadable artifacts (.pt, .pkl, .onnx)."
+                  />
+                ) : (
+                  <div className="divide-y divide-border/50">
+                    {artifacts.map((a, i) => (
+                      <motion.div
+                        key={a.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-center justify-between p-4"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{a.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {a.artifact_type} &middot; {formatBytes(a.size_bytes)} &middot;{" "}
+                            {new Date(a.created_at).toLocaleDateString(undefined, {
+                              year: "numeric", month: "short", day: "numeric",
+                            })}
+                          </p>
+                        </div>
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border"
+                            onClick={async () => {
+                              try {
+                                const res = await api.get<{ download_url: string }>(`/artifacts/${a.id}/download`);
+                                window.open(res.download_url, "_blank");
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : "Download failed");
+                              }
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5" /> Download
+                          </Button>
+                        </motion.div>
+                      </motion.div>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>

@@ -6,7 +6,8 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Artifact {
     pub id: Uuid,
-    pub job_id: Uuid,
+    pub job_id: Option<Uuid>,
+    pub workspace_id: Option<Uuid>,
     pub name: String,
     pub artifact_type: String,
     pub s3_key: String,

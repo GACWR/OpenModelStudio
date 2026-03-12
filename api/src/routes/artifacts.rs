@@ -55,6 +55,24 @@ pub async fn create(
     Ok(Json(artifact))
 }
 
+/// List all artifacts for a model (via its jobs)
+pub async fn list_for_model(
+    State(state): State<AppState>,
+    AuthUser(_claims): AuthUser,
+    Path(model_id): Path<Uuid>,
+) -> AppResult<Json<Vec<Artifact>>> {
+    let artifacts: Vec<Artifact> = sqlx::query_as(
+        "SELECT a.* FROM artifacts a
+         JOIN jobs j ON a.job_id = j.id
+         WHERE j.model_id = $1
+         ORDER BY a.created_at DESC"
+    )
+    .bind(model_id)
+    .fetch_all(&state.db)
+    .await?;
+    Ok(Json(artifacts))
+}
+
 pub async fn download(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,

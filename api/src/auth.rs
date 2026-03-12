@@ -46,7 +46,7 @@ pub fn create_access_token(
         email: email.to_string(),
         role,
         iat: now.timestamp(),
-        exp: (now + Duration::minutes(15)).timestamp(),
+        exp: (now + Duration::hours(24)).timestamp(),
         token_type: "access".into(),
     };
     encode(
