@@ -132,10 +132,10 @@ fn extract_csv_schema(bytes: &[u8]) -> Option<(serde_json::Value, i64)> {
                     Some(prev) => {
                         if prev == cell_type {
                             prev
-                        } else if prev == "int64" && cell_type == "float64" {
-                            "float64" // promote int → float
-                        } else if prev == "float64" && cell_type == "int64" {
-                            "float64"
+                        } else if (prev == "int64" && cell_type == "float64")
+                            || (prev == "float64" && cell_type == "int64")
+                        {
+                            "float64" // promote int ↔ float
                         } else {
                             "string" // fall back to string on conflict
                         }
