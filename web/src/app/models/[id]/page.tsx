@@ -363,6 +363,40 @@ export default function ModelDetailPage() {
                       <Save className="h-4 w-4" /> Edit Code
                     </Button>
                   </motion.div>
+                  <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 border"
+                      onClick={async () => {
+                        try {
+                          const token = api.getToken();
+                          const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+                          const res = await fetch(`${baseUrl}/sdk/models/${modelId}/artifact`, {
+                            headers: token ? { Authorization: `Bearer ${token}` } : {},
+                          });
+                          if (!res.ok) {
+                            const text = await res.text();
+                            throw new Error(text || "Download failed");
+                          }
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          const ext = model.framework.toLowerCase() === "pytorch" ? "pt" : "pkl";
+                          a.download = `${model.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_v${model.version}.${ext}`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          toast.success("Model downloaded");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Download failed");
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4" /> Download Model
+                    </Button>
+                  </motion.div>
 
                   {/* Recent Jobs Summary */}
                   {jobs.length > 0 && (

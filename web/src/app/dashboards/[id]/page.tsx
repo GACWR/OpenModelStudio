@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage } from "@/components/shared/animated-page";
@@ -8,7 +8,7 @@ import { GlassCard } from "@/components/shared/glass-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { CardSkeleton } from "@/components/shared/loading-skeleton";
-import { VizRenderer } from "@/components/shared/viz-renderer";
+import { VizRenderer, downloadVisualization } from "@/components/shared/viz-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,7 @@ import {
   Maximize2,
   Lock,
   Unlock,
+  Download,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -113,6 +114,9 @@ export default function DashboardDetailPage() {
 
   // Dashboard panel layout
   const [panels, setPanels] = useState<DashboardLayoutItem[]>([]);
+
+  // Panel container refs for download
+  const panelRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Add panel dialog
   const [addPanelOpen, setAddPanelOpen] = useState(false);
@@ -447,6 +451,22 @@ export default function DashboardDetailPage() {
                             size="icon"
                             className="h-5 w-5 text-muted-foreground/40 hover:text-foreground"
                             onClick={() =>
+                              downloadVisualization(
+                                vizName,
+                                outputType,
+                                renderedOutput,
+                                panelRefs.current.get(index) || null,
+                              )
+                            }
+                            disabled={!renderedOutput}
+                          >
+                            <Download className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground/40 hover:text-foreground"
+                            onClick={() =>
                               router.push(`/visualizations/${panel.visualization_id}`)
                             }
                           >
@@ -466,7 +486,12 @@ export default function DashboardDetailPage() {
                       </div>
 
                       {/* Visualization content */}
-                      <div className="flex-1 min-h-0 px-2 pb-2">
+                      <div
+                        className="flex-1 min-h-0 px-2 pb-2"
+                        ref={(el) => {
+                          if (el) panelRefs.current.set(index, el);
+                        }}
+                      >
                         <div className="h-full rounded-md overflow-hidden bg-black/10">
                           <VizRenderer
                             outputType={outputType}
