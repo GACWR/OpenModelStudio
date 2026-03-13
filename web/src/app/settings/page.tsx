@@ -94,6 +94,7 @@ export default function SettingsPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [genKeyOpen, setGenKeyOpen] = useState(false);
   const [genKeyName, setGenKeyName] = useState("");
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -138,8 +139,24 @@ export default function SettingsPage() {
     } catch {}
   }, [user]);
 
-  const copyKey = (id: string) => {
-    setCopiedKey(id);
+  const copyToClipboard = async (text: string, id?: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(id ?? text);
+      toast.success("Copied to clipboard");
+    } catch {
+      // Fallback for non-HTTPS / older browsers
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopiedKey(id ?? text);
+      toast.success("Copied to clipboard");
+    }
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
@@ -149,15 +166,19 @@ export default function SettingsPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await api.post<any>("/api-keys", { name: genKeyName.trim() });
-      toast.success(`Key created: ${res.key}`);
-      setGenKeyOpen(false);
-      setGenKeyName("");
+      setGeneratedKey(res.key);
       fetchKeys();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to generate key");
     } finally {
       setGenerating(false);
     }
+  };
+
+  const closeKeyDialog = () => {
+    setGenKeyOpen(false);
+    setGenKeyName("");
+    setGeneratedKey(null);
   };
 
   const handleDeleteKey = async (id: string) => {
@@ -319,21 +340,43 @@ export default function SettingsPage() {
                         <h3 className="text-base font-semibold text-foreground">API Keys</h3>
                         <p className="text-xs text-muted-foreground">Manage your API access tokens</p>
                       </div>
-                      <Dialog open={genKeyOpen} onOpenChange={setGenKeyOpen}>
+                      <Dialog open={genKeyOpen} onOpenChange={(open) => { if (!open) closeKeyDialog(); else setGenKeyOpen(true); }}>
                         <DialogTrigger asChild>
                           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                             <Button size="sm" className="gap-2 bg-white text-black hover:bg-white/90"><Plus className="h-3.5 w-3.5" /> Generate Key</Button>
                           </motion.div>
                         </DialogTrigger>
                         <DialogContent className="border bg-card">
-                          <DialogHeader><DialogTitle>Generate API Key</DialogTitle></DialogHeader>
-                          <div className="space-y-4 pt-2">
-                            <div className="space-y-2">
-                              <Label>Key Name</Label>
-                              <Input placeholder="my-api-key" value={genKeyName} onChange={(e) => setGenKeyName(e.target.value)} className="border bg-muted" />
+                          <DialogHeader><DialogTitle>{generatedKey ? "API Key Created" : "Generate API Key"}</DialogTitle></DialogHeader>
+                          {generatedKey ? (
+                            <div className="space-y-4 pt-2">
+                              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                                <p className="text-xs text-amber-400 mb-2">Copy your key now. You won&apos;t be able to see it again.</p>
+                                <div className="flex items-center gap-2">
+                                  <code className="flex-1 rounded bg-black/50 px-3 py-2 font-mono text-xs text-white break-all select-all">
+                                    {generatedKey}
+                                  </code>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    onClick={() => copyToClipboard(generatedKey, "new-key")}
+                                  >
+                                    {copiedKey === "new-key" ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                                  </Button>
+                                </div>
+                              </div>
+                              <Button className="w-full bg-white text-black hover:bg-white/90" onClick={closeKeyDialog}>Done</Button>
                             </div>
-                            <Button className="w-full bg-white text-black hover:bg-white/90" disabled={generating} onClick={handleGenerateKey}>{generating ? "Generating..." : "Generate Key"}</Button>
-                          </div>
+                          ) : (
+                            <div className="space-y-4 pt-2">
+                              <div className="space-y-2">
+                                <Label>Key Name</Label>
+                                <Input placeholder="my-api-key" value={genKeyName} onChange={(e) => setGenKeyName(e.target.value)} className="border bg-muted" />
+                              </div>
+                              <Button className="w-full bg-white text-black hover:bg-white/90" disabled={generating} onClick={handleGenerateKey}>{generating ? "Generating..." : "Generate Key"}</Button>
+                            </div>
+                          )}
                         </DialogContent>
                       </Dialog>
                     </div>
@@ -352,11 +395,6 @@ export default function SettingsPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground/70">Last used {k.lastUsed}</span>
-                            <motion.div whileHover={{ scale: 1.1 }}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyKey(k.id)}>
-                                {copiedKey === k.id ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                              </Button>
-                            </motion.div>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-300" onClick={() => handleDeleteKey(k.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </div>
                         </motion.div>

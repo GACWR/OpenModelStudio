@@ -2,6 +2,8 @@ use k8s_openapi::api::batch::v1::Job as K8sJob;
 use k8s_openapi::api::batch::v1::JobSpec;
 use k8s_openapi::api::core::v1::{
     Container, EnvVar, PodSpec, PodTemplateSpec, Pod, ResourceRequirements,
+    PersistentVolumeClaim, PersistentVolumeClaimSpec, Volume, VolumeMount,
+    PersistentVolumeClaimVolumeSource,
     Service, ServicePort, ServiceSpec,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
@@ -194,6 +196,44 @@ impl K8sService {
         Ok(0)
     }
 
+    /// Create a PersistentVolumeClaim for a workspace's working directory
+    pub async fn create_workspace_pvc(&self, workspace_id: Uuid) -> Result<String, kube::Error> {
+        let pvc_name = format!("oms-ws-{}-data", workspace_id);
+        let pvc = PersistentVolumeClaim {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some(pvc_name.clone()),
+                namespace: Some(self.namespace.clone()),
+                labels: Some(BTreeMap::from([
+                    ("app".to_string(), "openmodelstudio".to_string()),
+                    ("workspace-id".to_string(), workspace_id.to_string()),
+                ])),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_string()]),
+                resources: Some(k8s_openapi::api::core::v1::VolumeResourceRequirements {
+                    requests: Some(BTreeMap::from([
+                        ("storage".to_string(), Quantity("5Gi".to_string())),
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), &self.namespace);
+        pvcs.create(&PostParams::default(), &pvc).await?;
+        Ok(pvc_name)
+    }
+
+    /// Delete a workspace PVC (only on permanent workspace deletion)
+    pub async fn delete_workspace_pvc(&self, workspace_id: Uuid) -> Result<(), kube::Error> {
+        let pvc_name = format!("oms-ws-{}-data", workspace_id);
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), &self.namespace);
+        let _ = pvcs.delete(&pvc_name, &DeleteParams::default()).await;
+        Ok(())
+    }
+
     /// Create a workspace pod (JupyterLab) with a NodePort Service
     pub async fn create_workspace_pod(
         &self,
@@ -202,6 +242,7 @@ impl K8sService {
         hardware_tier: &str,
         project_id: Uuid,
         workspace_token: &str,
+        pvc_name: &str,
     ) -> Result<(String, String), kube::Error> {
         let pod_name = format!("oms-ws-{}", workspace_id);
         let svc_name = format!("oms-ws-{}-svc", workspace_id);
@@ -288,8 +329,21 @@ impl K8sService {
                         container_port: 8888,
                         ..Default::default()
                     }]),
+                    volume_mounts: Some(vec![VolumeMount {
+                        name: "workspace-data".to_string(),
+                        mount_path: "/home/jovyan/work".to_string(),
+                        ..Default::default()
+                    }]),
                     ..Default::default()
                 }],
+                volumes: Some(vec![Volume {
+                    name: "workspace-data".to_string(),
+                    persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+                        claim_name: pvc_name.to_string(),
+                        read_only: Some(false),
+                    }),
+                    ..Default::default()
+                }]),
                 ..Default::default()
             }),
             ..Default::default()

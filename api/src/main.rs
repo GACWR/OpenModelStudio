@@ -40,9 +40,13 @@ async fn main() {
     let llm = Arc::new(LlmService::new(&config));
 
     let k8s = match K8sService::new(&config).await {
-        Ok(svc) => Some(Arc::new(svc)),
+        Ok(svc) => {
+            tracing::info!("K8s service initialized successfully (namespace: {})", config.k8s_namespace);
+            Some(Arc::new(svc))
+        }
         Err(e) => {
-            tracing::warn!("K8s client not available: {e}. Running without K8s integration.");
+            tracing::error!("K8s service initialization FAILED: {e}");
+            tracing::error!("Training jobs and workspace pods will NOT work until K8s is properly configured");
             None
         }
     };
@@ -105,6 +109,7 @@ async fn main() {
         .route("/models/{id}/code", put(routes::models::update_code))
         .route("/models/{id}/run", post(routes::models::run_model))
         .route("/models/{id}/versions", get(routes::models::list_versions))
+        .route("/models/{id}/experiment-runs", get(routes::models::experiment_runs))
         // Training
         .route("/training/jobs", get(routes::training::list_all_jobs))
         .route("/training/start", post(routes::training::start))
@@ -130,6 +135,7 @@ async fn main() {
         .route("/experiments/{id}/compare", get(routes::experiments::compare))
         // Artifacts
         .route("/jobs/{job_id}/artifacts", get(routes::artifacts::list))
+        .route("/models/{model_id}/artifacts", get(routes::artifacts::list_for_model))
         .route("/artifacts", post(routes::artifacts::create))
         .route("/artifacts/{id}", get(routes::artifacts::get))
         .route("/artifacts/{id}", delete(routes::artifacts::delete))

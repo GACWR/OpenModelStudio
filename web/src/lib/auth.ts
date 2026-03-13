@@ -21,6 +21,7 @@ export async function login(
 ): Promise<AuthResponse> {
   const res = await api.post<AuthResponse>("/auth/login", { email, password });
   api.setToken(res.access_token);
+  api.setRefreshToken(res.refresh_token);
   return res;
 }
 
@@ -36,6 +37,7 @@ export async function register(data: {
     name: data.display_name,
   });
   api.setToken(res.access_token);
+  api.setRefreshToken(res.refresh_token);
   return res;
 }
 

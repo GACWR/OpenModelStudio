@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, FlaskConical, Trophy, BarChart3, GitCompare,
-  TrendingUp, Users, Trash2,
+  TrendingUp, Users, Trash2, Radio,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import Link from "next/link";
@@ -49,6 +49,7 @@ interface ExperimentRun {
   id: string;
   experiment_id: string;
   job_id: string | null;
+  model_id: string | null;
   parameters: Record<string, unknown> | null;
   metrics: Record<string, unknown> | null;
   created_at: string;
@@ -80,45 +81,54 @@ export default function ExperimentDetailPage() {
   const [activeTab, setActiveTab] = useState("runs");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [metricTimeSeries, setMetricTimeSeries] = useState<Record<string, MetricRecord[]>>({});
+  const [isPolling, setIsPolling] = useState(true);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevRunCountRef = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchAll = useCallback(async (isInitial = false) => {
+    try {
+      const [exp, expRuns] = await Promise.all([
+        api.get<Experiment>(`/experiments/${experimentId}`),
+        api.get<ExperimentRun[]>(`/experiments/${experimentId}/runs`),
+      ]);
+      setExperiment(exp);
+      setRuns(expRuns ?? []);
 
-    async function fetchAll() {
-      try {
-        const [exp, expRuns] = await Promise.all([
-          api.get<Experiment>(`/experiments/${experimentId}`),
-          api.get<ExperimentRun[]>(`/experiments/${experimentId}/runs`),
-        ]);
-        if (cancelled) return;
-        setExperiment(exp);
-        setRuns(expRuns ?? []);
-
-        // Fetch time-series metrics for each run that has a job_id
-        const jobIds = (expRuns ?? []).filter((r) => r.job_id).map((r) => r.job_id!);
-        const uniqueJobIds = [...new Set(jobIds)];
-        const metricsMap: Record<string, MetricRecord[]> = {};
-        await Promise.all(
-          uniqueJobIds.map(async (jid) => {
-            try {
-              const data = await api.get<MetricRecord[]>(`/training/${jid}/metrics`);
-              metricsMap[jid] = data ?? [];
-            } catch {
-              metricsMap[jid] = [];
-            }
-          })
-        );
-        if (!cancelled) setMetricTimeSeries(metricsMap);
-      } catch (err) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : "Failed to load experiment");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      // Fetch time-series metrics for each run that has a job_id
+      const jobIds = (expRuns ?? []).filter((r) => r.job_id).map((r) => r.job_id!);
+      const uniqueJobIds = [...new Set(jobIds)];
+      const metricsMap: Record<string, MetricRecord[]> = {};
+      await Promise.all(
+        uniqueJobIds.map(async (jid) => {
+          try {
+            const data = await api.get<MetricRecord[]>(`/training/${jid}/metrics`);
+            metricsMap[jid] = data ?? [];
+          } catch {
+            metricsMap[jid] = [];
+          }
+        })
+      );
+      setMetricTimeSeries(metricsMap);
+      prevRunCountRef.current = (expRuns ?? []).length;
+    } catch (err) {
+      if (isInitial) toast.error(err instanceof Error ? err.message : "Failed to load experiment");
+    } finally {
+      if (isInitial) setLoading(false);
     }
-
-    fetchAll();
-    return () => { cancelled = true; };
   }, [experimentId]);
+
+  // Initial fetch + polling every 3 seconds
+  useEffect(() => {
+    fetchAll(true);
+
+    pollRef.current = setInterval(() => {
+      if (isPolling) fetchAll(false);
+    }, 3000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [experimentId, fetchAll, isPolling]);
 
   // Derive dynamic columns from run parameters + metrics
   const { paramKeys, metricKeys } = useMemo(() => {
@@ -249,19 +259,39 @@ export default function ExperimentDetailPage() {
               <h1 className="text-2xl font-bold text-foreground">{experiment.name}</h1>
               <Badge variant="secondary" className="text-[10px] capitalize">{experiment.experiment_type}</Badge>
               <Badge variant="outline" className="text-[10px]">{runs.length} runs</Badge>
+              {isPolling && (
+                <Badge variant="outline" className="text-[10px] gap-1 border-emerald-500/30 text-emerald-400">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  Live
+                </Badge>
+              )}
             </div>
             {experiment.description && (
               <p className="mt-1 ml-11 text-sm text-muted-foreground">{experiment.description}</p>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Delete
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={`gap-2 text-xs ${isPolling ? "text-emerald-400 border-emerald-500/20" : "text-muted-foreground"}`}
+              onClick={() => setIsPolling(!isPolling)}
+            >
+              <Radio className="h-3.5 w-3.5" />
+              {isPolling ? "Auto-refresh on" : "Auto-refresh off"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </Button>
+          </div>
         </div>
 
         {/* Summary stats */}
@@ -330,7 +360,7 @@ export default function ExperimentDetailPage() {
                         <TableHeader>
                           <TableRow className="border-border/50">
                             <TableHead className="w-24 text-xs">Run</TableHead>
-                            <TableHead className="w-20 text-xs">Job</TableHead>
+                            <TableHead className="w-20 text-xs">Job / Model</TableHead>
                             {paramKeys.map((k) => (
                               <TableHead key={`p-${k}`} className="text-xs">
                                 <span className="text-blue-400/80">{k}</span>
@@ -344,19 +374,19 @@ export default function ExperimentDetailPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
+                          <AnimatePresence initial={false}>
                           {runs.map((run, i) => {
                             const isBest = run.id === bestRunId;
                             return (
                               <motion.tr
                                 key={run.id}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: i * 0.03 }}
-                                className={`border-b border-border/50 transition-colors cursor-pointer hover:bg-white/[0.02] ${
-                                  isBest ? "bg-emerald-500/[0.04]" : ""
-                                }`}
+                                initial={{ opacity: 0, x: -20, backgroundColor: "rgba(16, 185, 129, 0.1)" }}
+                                animate={{ opacity: 1, x: 0, backgroundColor: isBest ? "rgba(16, 185, 129, 0.04)" : "transparent" }}
+                                transition={{ duration: 0.4 }}
+                                className={`border-b border-border/50 transition-colors cursor-pointer hover:bg-white/[0.02]`}
                                 onClick={() => {
                                   if (run.job_id) router.push(`/training/${run.job_id}`);
+                                  else if (run.model_id) router.push(`/models/${run.model_id}`);
                                 }}
                               >
                                 <TableCell className="font-mono text-white text-xs">
@@ -367,7 +397,7 @@ export default function ExperimentDetailPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell className="font-mono text-muted-foreground/50 text-[10px]">
-                                  {run.job_id ? run.job_id.substring(0, 8) : "—"}
+                                  {run.job_id ? run.job_id.substring(0, 8) : run.model_id ? run.model_id.substring(0, 8) : "—"}
                                 </TableCell>
                                 {paramKeys.map((k) => (
                                   <TableCell key={`p-${k}`} className="font-mono text-muted-foreground text-xs">
@@ -390,6 +420,7 @@ export default function ExperimentDetailPage() {
                               </motion.tr>
                             );
                           })}
+                          </AnimatePresence>
                         </TableBody>
                       </Table>
                     </CardContent>

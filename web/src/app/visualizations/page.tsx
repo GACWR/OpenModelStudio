@@ -120,6 +120,7 @@ export default function VisualizationsPage() {
         backend: newBackend,
         description: newDescription.trim() || null,
         refresh_interval: parseInt(newRefreshInterval) || 0,
+        project_id: selectedProjectId || undefined,
       });
       toast.success("Visualization created");
       setCreateOpen(false);

@@ -17,6 +17,12 @@ import { Database, FileText, Layers, Eye, GitBranch, HardDrive, BarChart3 } from
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
+interface SchemaColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+}
+
 interface DatasetData {
   id: string;
   project_id: string;
@@ -30,6 +36,7 @@ interface DatasetData {
   created_by: string;
   created_at: string;
   updated_at: string;
+  schema: SchemaColumn[] | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -106,17 +113,8 @@ export default function DatasetDetailPage() {
   const formatKey = dataset.format.toLowerCase();
   const formatStyle = formatColors[formatKey] ?? "bg-slate-500/10 text-muted-foreground border-slate-500/20";
 
-  // Mock schema based on format for display purposes
-  const schemaColumns: { name: string; type: string; nullable: boolean }[] =
-    formatKey === "csv" || formatKey === "parquet" || formatKey === "jsonl" || formatKey === "json"
-      ? [
-          { name: "id", type: "string", nullable: false },
-          { name: "label", type: "int64", nullable: false },
-          { name: "split", type: "string", nullable: false },
-          { name: "features", type: "float32[]", nullable: true },
-          { name: "metadata", type: "json", nullable: true },
-        ]
-      : [];
+  // Use real schema from the API (extracted during upload)
+  const schemaColumns: SchemaColumn[] = Array.isArray(dataset.schema) ? dataset.schema : [];
 
   return (
     <AppShell>
@@ -273,7 +271,7 @@ export default function DatasetDetailPage() {
                       <EmptyState
                         icon={FileText}
                         title="Schema not available"
-                        description="Schema information is not available for this dataset format. Connect a data source to inspect the schema."
+                        description="Schema could not be inferred for this dataset. Re-upload as CSV to auto-detect columns, or connect a data source to inspect the schema."
                       />
                     ) : (
                       <Table>

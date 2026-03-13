@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage } from "@/components/shared/animated-page";
 import { GlassCard } from "@/components/shared/glass-card";
 import { ErrorState } from "@/components/shared/error-state";
-import { VizRenderer } from "@/components/shared/viz-renderer";
+import { VizRenderer, downloadVisualization } from "@/components/shared/viz-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
   BarChart3,
   Loader2,
   Check,
+  Download,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -311,7 +312,9 @@ export default function VisualizationDetailPage() {
   const [description, setDescription] = useState("");
   const [refreshInterval, setRefreshInterval] = useState("0");
   const [showPreview, setShowPreview] = useState(true);
+  const [showCode, setShowCode] = useState(true);
   const [activeTab, setActiveTab] = useState("code");
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Live preview state for interactive backends (plotly, vega-lite)
   const [previewOutput, setPreviewOutput] = useState<string | null>(null);
@@ -541,7 +544,29 @@ export default function VisualizationDetailPage() {
                 variant="outline"
                 size="sm"
                 className="gap-1.5 border text-xs"
-                onClick={() => setShowPreview(!showPreview)}
+                onClick={() => {
+                  if (showCode && !showPreview) {
+                    setShowPreview(true);
+                  }
+                  setShowCode(!showCode);
+                }}
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                {showCode ? "Hide Code" : "Show Code"}
+              </Button>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border text-xs"
+                onClick={() => {
+                  if (showPreview && !showCode) {
+                    setShowCode(true);
+                  }
+                  setShowPreview(!showPreview);
+                }}
               >
                 {showPreview ? (
                   <EyeOff className="h-3.5 w-3.5" />
@@ -549,6 +574,26 @@ export default function VisualizationDetailPage() {
                   <Eye className="h-3.5 w-3.5" />
                 )}
                 {showPreview ? "Hide Preview" : "Show Preview"}
+              </Button>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border text-xs"
+                onClick={() =>
+                  downloadVisualization(
+                    name || "visualization",
+                    previewType,
+                    previewOutput,
+                    previewContainerRef.current,
+                  )
+                }
+                disabled={!previewOutput}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download
               </Button>
             </motion.div>
 
@@ -596,9 +641,13 @@ export default function VisualizationDetailPage() {
 
         {/* Editor + Preview split */}
         <div className="flex-1 grid gap-4 min-h-0" style={{
-          gridTemplateColumns: showPreview ? "1fr 1fr" : "1fr",
+          gridTemplateColumns:
+            showCode && showPreview
+              ? "1fr 1fr"
+              : "1fr",
         }}>
           {/* Left: Code Editor */}
+          {showCode && (
           <GlassCard className="flex flex-col min-h-0 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
               <TabsList className="bg-muted/30 mx-3 mt-3 shrink-0">
@@ -760,6 +809,7 @@ export default function VisualizationDetailPage() {
               </TabsContent>
             </Tabs>
           </GlassCard>
+          )}
 
           {/* Right: Preview */}
           {showPreview && (
@@ -794,7 +844,7 @@ export default function VisualizationDetailPage() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex-1 min-h-0 px-3 pb-3">
+                <div className="flex-1 min-h-0 px-3 pb-3" ref={previewContainerRef}>
                   <div className="h-full rounded-lg border border-white/[0.06] bg-black/20 overflow-hidden">
                     <VizRenderer
                       outputType={previewType}

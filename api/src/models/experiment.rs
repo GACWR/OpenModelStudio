@@ -19,7 +19,8 @@ pub struct Experiment {
 pub struct ExperimentRun {
     pub id: Uuid,
     pub experiment_id: Uuid,
-    pub job_id: Uuid,
+    pub job_id: Option<Uuid>,
+    pub model_id: Option<Uuid>,
     pub parameters: Option<serde_json::Value>,
     pub metrics: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
@@ -34,7 +35,8 @@ pub struct CreateExperimentRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct AddRunRequest {
-    pub job_id: Uuid,
+    pub job_id: Option<Uuid>,
+    pub model_id: Option<Uuid>,
     pub parameters: Option<serde_json::Value>,
     pub metrics: Option<serde_json::Value>,
 }

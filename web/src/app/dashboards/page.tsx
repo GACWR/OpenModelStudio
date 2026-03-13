@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import { LayoutDashboard, Search, Plus, ChevronRight, Layers } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useProjectFilter } from "@/providers/project-filter-provider";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -43,6 +44,7 @@ interface Dashboard {
 }
 
 export default function DashboardsPage() {
+  const { selectedProjectId } = useProjectFilter();
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,11 +57,11 @@ export default function DashboardsPage() {
   const [newDescription, setNewDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchDashboards = () => {
+  const fetchDashboards = (projectId: string | null) => {
     setLoading(true);
     setError(null);
     api
-      .get<Dashboard[]>("/dashboards")
+      .getFiltered<Dashboard[]>("/dashboards", projectId)
       .then(setDashboards)
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Failed to load dashboards")
@@ -68,8 +70,8 @@ export default function DashboardsPage() {
   };
 
   useEffect(() => {
-    fetchDashboards();
-  }, []);
+    fetchDashboards(selectedProjectId);
+  }, [selectedProjectId]);
 
   const handleCreate = async () => {
     if (!newName.trim()) {
@@ -81,12 +83,13 @@ export default function DashboardsPage() {
       await api.post("/dashboards", {
         name: newName.trim(),
         description: newDescription.trim() || null,
+        project_id: selectedProjectId || undefined,
       });
       toast.success("Dashboard created");
       setCreateOpen(false);
       setNewName("");
       setNewDescription("");
-      fetchDashboards();
+      fetchDashboards(selectedProjectId);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to create dashboard"
@@ -189,7 +192,7 @@ export default function DashboardsPage() {
             ))}
           </div>
         ) : error ? (
-          <ErrorState message={error} onRetry={fetchDashboards} />
+          <ErrorState message={error} onRetry={() => fetchDashboards(selectedProjectId)} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={LayoutDashboard}

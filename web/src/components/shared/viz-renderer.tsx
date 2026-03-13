@@ -303,6 +303,67 @@ function LoadingSpinner() {
   );
 }
 
+// ── Download Utility ──────────────────────────────────────────────
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Download a visualization as an image file.
+ *
+ * For SVG/PNG types, uses the rendered_output string directly.
+ * For interactive types (plotly, vega-lite, bokeh), queries the
+ * containerEl for the chart DOM element and exports it.
+ */
+export async function downloadVisualization(
+  name: string,
+  outputType: string,
+  renderedOutput: string | null,
+  containerEl?: HTMLElement | null,
+) {
+  const filename = name.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  if (outputType === "svg" && renderedOutput) {
+    const blob = new Blob([renderedOutput], { type: "image/svg+xml" });
+    triggerDownload(blob, `${filename}.svg`);
+  } else if (outputType === "png" && renderedOutput) {
+    const res = await fetch(renderedOutput);
+    const blob = await res.blob();
+    triggerDownload(blob, `${filename}.png`);
+  } else if (outputType === "plotly" && containerEl) {
+    const plotlyDiv = containerEl.querySelector(".viz-plotly");
+    const Plotly = (window as any).Plotly;
+    if (plotlyDiv && Plotly) {
+      const url = await Plotly.toImage(plotlyDiv, {
+        format: "png",
+        width: 1200,
+        height: 800,
+      });
+      const res = await fetch(url);
+      const blob = await res.blob();
+      triggerDownload(blob, `${filename}.png`);
+    }
+  } else if (
+    (outputType === "vega-lite" || outputType === "bokeh") &&
+    containerEl
+  ) {
+    const canvas = containerEl.querySelector("canvas") as HTMLCanvasElement | null;
+    if (canvas) {
+      canvas.toBlob((blob) => {
+        if (blob) triggerDownload(blob, `${filename}.png`);
+      });
+    }
+  }
+}
+
 // ── CDN Script Loading ─────────────────────────────────────────────
 //
 // All UMD libraries (Plotly, Vega, Bokeh) have the same problem:

@@ -92,8 +92,19 @@ Create, render, and publish data visualizations from notebooks or the in-browser
 
 Combine visualizations into **drag-and-drop dashboards** with resizable panels, lock/unlock layout, and persistent configuration. Each visualization also has a full **in-browser editor** with Monaco, live preview for JSON backends, template insertion, and data/config tabs. See the [Visualizations Guide](docs/VISUALIZATIONS.md) for SDK usage.
 
+#### Individual Visualization Editor
 <p align="center">
   <img src="docs/screenshots/oms-screenshot3.png" alt="OpenModelStudio Visualization Framework" width="100%" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/oms-screenshot4.png" alt="OpenModelStudio Visualization Framework" width="100%" />
+</p>
+
+#### Dashboard
+
+<p align="center">
+  <img src="docs/screenshots/oms-screenshot5.png" alt="OpenModelStudio Visualization Framework" width="100%" />
 </p>
 
 ### Model Registry
