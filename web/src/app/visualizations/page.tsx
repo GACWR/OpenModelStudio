@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage, staggerContainer, staggerItem } from "@/components/shared/animated-page";
 import { GlassCard } from "@/components/shared/glass-card";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
-import { BarChart3, Search, Plus, Eye, Clock, Trash2, ChevronRight } from "lucide-react";
+import { BarChart3, Search, Plus, Clock, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -46,6 +46,13 @@ interface Visualization {
   updated_at: string;
 }
 
+interface PaginatedResponse {
+  items: Visualization[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 const backendColors: Record<string, string> = {
   matplotlib: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   seaborn: "bg-teal-500/10 text-teal-400 border-teal-500/20",
@@ -70,10 +77,14 @@ const BACKENDS = [
   "geopandas",
 ];
 
+const PER_PAGE = 24;
+
 export default function VisualizationsPage() {
   const router = useRouter();
   const { selectedProjectId } = useProjectFilter();
   const [visualizations, setVisualizations] = useState<Visualization[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -88,21 +99,44 @@ export default function VisualizationsPage() {
   const [newRefreshInterval, setNewRefreshInterval] = useState("0");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchVisualizations = () => {
-    setLoading(true);
-    setError(null);
-    api
-      .getFiltered<Visualization[]>("/visualizations", selectedProjectId)
-      .then(setVisualizations)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load visualizations")
-      )
-      .finally(() => setLoading(false));
-  };
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+
+  const fetchVisualizations = useCallback(
+    (p: number) => {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams();
+      if (selectedProjectId) params.set("project_id", selectedProjectId);
+      params.set("page", String(p));
+      params.set("per_page", String(PER_PAGE));
+      const qs = params.toString();
+      api
+        .get<PaginatedResponse>(`/visualizations?${qs}`)
+        .then((resp) => {
+          setVisualizations(resp.items);
+          setTotal(resp.total);
+          setPage(resp.page);
+        })
+        .catch((err) =>
+          setError(
+            err instanceof Error ? err.message : "Failed to load visualizations"
+          )
+        )
+        .finally(() => setLoading(false));
+    },
+    [selectedProjectId]
+  );
 
   useEffect(() => {
-    fetchVisualizations();
-  }, [selectedProjectId]);
+    setPage(1);
+    fetchVisualizations(1);
+  }, [selectedProjectId, fetchVisualizations]);
+
+  const goToPage = (p: number) => {
+    const target = Math.max(1, Math.min(p, totalPages));
+    fetchVisualizations(target);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleCreate = async () => {
     if (!newName.trim()) {
@@ -128,7 +162,6 @@ export default function VisualizationsPage() {
       setNewBackend("");
       setNewDescription("");
       setNewRefreshInterval("0");
-      // Navigate directly to the editor
       router.push(`/visualizations/${result.id}`);
     } catch (err) {
       toast.error(
@@ -147,6 +180,7 @@ export default function VisualizationsPage() {
       await api.delete(`/visualizations/${vizId}`);
       toast.success("Visualization deleted");
       setVisualizations(visualizations.filter((v) => v.id !== vizId));
+      setTotal((t) => t - 1);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to delete"
@@ -167,6 +201,23 @@ export default function VisualizationsPage() {
     return v.published ? "Published" : "Draft";
   }
 
+  // Build page number buttons (show max 7 page buttons)
+  const pageButtons = (() => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push("...");
+      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+        pages.push(i);
+      }
+      if (page < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  })();
+
   return (
     <AppShell>
       <AnimatedPage className="space-y-6">
@@ -178,6 +229,11 @@ export default function VisualizationsPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Create and manage data visualizations
+              {total > 0 && (
+                <span className="ml-2 text-muted-foreground/50">
+                  ({total} total)
+                </span>
+              )}
             </p>
           </div>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -299,7 +355,7 @@ export default function VisualizationsPage() {
             ))}
           </div>
         ) : error ? (
-          <ErrorState message={error} onRetry={fetchVisualizations} />
+          <ErrorState message={error} onRetry={() => fetchVisualizations(page)} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={BarChart3}
@@ -417,6 +473,54 @@ export default function VisualizationsPage() {
               );
             })}
           </motion.div>
+        )}
+
+        {/* Pagination */}
+        {!loading && !error && total > PER_PAGE && (
+          <div className="flex items-center justify-center gap-1 pt-2 pb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={page <= 1}
+              onClick={() => goToPage(page - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {pageButtons.map((p, i) =>
+              p === "..." ? (
+                <span
+                  key={`dots-${i}`}
+                  className="px-1 text-xs text-muted-foreground/40"
+                >
+                  ...
+                </span>
+              ) : (
+                <Button
+                  key={p}
+                  variant={p === page ? "default" : "ghost"}
+                  size="icon"
+                  className={`h-8 w-8 text-xs ${
+                    p === page
+                      ? "bg-white text-black hover:bg-white/90"
+                      : "text-muted-foreground"
+                  }`}
+                  onClick={() => goToPage(p)}
+                >
+                  {p}
+                </Button>
+              )
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={page >= totalPages}
+              onClick={() => goToPage(page + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </AnimatedPage>
     </AppShell>
