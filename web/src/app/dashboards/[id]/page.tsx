@@ -179,13 +179,13 @@ export default function DashboardDetailPage() {
     setError(null);
     Promise.all([
       api.get<Dashboard>(`/dashboards/${id}`),
-      api.get<VisualizationSummary[]>("/visualizations"),
+      api.get<{ items: VisualizationSummary[] }>("/visualizations?per_page=200"),
     ])
-      .then(([dash, vizs]) => {
+      .then(([dash, vizsResp]) => {
         setDashboard(dash);
         const items: DashboardLayoutItem[] = Array.isArray(dash.layout) ? dash.layout : [];
         setPanels(items);
-        setAllVisualizations(vizs);
+        setAllVisualizations(vizsResp.items);
 
         // Fetch full detail for each panel's visualization
         const uniqueIds = [...new Set(items.map((p) => p.visualization_id))];
