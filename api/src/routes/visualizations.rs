@@ -15,6 +15,8 @@ use crate::AppState;
 #[derive(Deserialize)]
 pub struct ListParams {
     pub project_id: Option<Uuid>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -73,32 +75,74 @@ pub struct UpdateVisualization {
     pub rendered_output: Option<String>,
 }
 
+/// Paginated response wrapper.
+#[derive(Serialize)]
+pub struct PaginatedResponse<T: Serialize> {
+    pub items: Vec<T>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
 pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
     Query(params): Query<ListParams>,
-) -> AppResult<Json<Vec<VisualizationSummary>>> {
-    let rows: Vec<VisualizationSummary> = if let Some(pid) = params.project_id {
-        sqlx::query_as(
+) -> AppResult<Json<serde_json::Value>> {
+    let page = params.page.unwrap_or(1).max(1);
+    let per_page = params.per_page.unwrap_or(24).clamp(1, 200);
+    let offset = (page - 1) * per_page;
+
+    let (rows, total): (Vec<VisualizationSummary>, i64) = if let Some(pid) = params.project_id {
+        let rows: Vec<VisualizationSummary> = sqlx::query_as(
             "SELECT id, project_id, name, description, backend, output_type,
                     refresh_interval, published, created_at, updated_at
              FROM visualizations WHERE project_id = $1
-             ORDER BY updated_at DESC"
+             ORDER BY updated_at DESC
+             LIMIT $2 OFFSET $3"
         )
         .bind(pid)
+        .bind(per_page)
+        .bind(offset)
         .fetch_all(&state.db)
-        .await?
+        .await?;
+
+        let (count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM visualizations WHERE project_id = $1"
+        )
+        .bind(pid)
+        .fetch_one(&state.db)
+        .await?;
+
+        (rows, count)
     } else {
-        sqlx::query_as(
+        let rows: Vec<VisualizationSummary> = sqlx::query_as(
             "SELECT id, project_id, name, description, backend, output_type,
                     refresh_interval, published, created_at, updated_at
              FROM visualizations
-             ORDER BY updated_at DESC"
+             ORDER BY updated_at DESC
+             LIMIT $1 OFFSET $2"
         )
+        .bind(per_page)
+        .bind(offset)
         .fetch_all(&state.db)
-        .await?
+        .await?;
+
+        let (count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM visualizations"
+        )
+        .fetch_one(&state.db)
+        .await?;
+
+        (rows, count)
     };
-    Ok(Json(rows))
+
+    Ok(Json(serde_json::json!({
+        "items": rows,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    })))
 }
 
 pub async fn create(
