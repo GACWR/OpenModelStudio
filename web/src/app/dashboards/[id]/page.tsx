@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { AnimatedPage } from "@/components/shared/animated-page";
@@ -97,6 +97,42 @@ const backendColors: Record<string, string> = {
 };
 
 const ROW_HEIGHT = 120;
+
+/**
+ * Lazy-renders children only when the panel is visible in the viewport.
+ * Uses IntersectionObserver with a generous rootMargin so panels render
+ * slightly before scrolling into view. When a panel scrolls out, the
+ * VizRenderer unmounts — freeing WebGL contexts and preventing the
+ * browser's ~8-16 concurrent WebGL context limit from being exceeded.
+ */
+function LazyVizPanel({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className="h-full w-full">
+      {isVisible ? (
+        children
+      ) : (
+        <div className="flex items-center justify-center w-full h-full min-h-[80px]">
+          <BarChart3 className="h-6 w-6 text-muted-foreground/20 animate-pulse" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardDetailPage() {
   const params = useParams();
@@ -485,7 +521,7 @@ export default function DashboardDetailPage() {
                         </div>
                       </div>
 
-                      {/* Visualization content */}
+                      {/* Visualization content — lazy-loaded to limit WebGL contexts */}
                       <div
                         className="flex-1 min-h-0 px-2 pb-2"
                         ref={(el) => {
@@ -493,10 +529,12 @@ export default function DashboardDetailPage() {
                         }}
                       >
                         <div className="h-full rounded-md overflow-hidden bg-black/10">
-                          <VizRenderer
-                            outputType={outputType}
-                            renderedOutput={renderedOutput}
-                          />
+                          <LazyVizPanel>
+                            <VizRenderer
+                              outputType={outputType}
+                              renderedOutput={renderedOutput}
+                            />
+                          </LazyVizPanel>
                         </div>
                       </div>
                     </GlassCard>
