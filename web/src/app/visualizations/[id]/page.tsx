@@ -319,10 +319,13 @@ export default function VisualizationDetailPage() {
   // Live preview state for interactive backends (plotly, vega-lite)
   const [previewOutput, setPreviewOutput] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string>("svg");
+  // Track whether the user has edited code (vs initial load from DB)
+  const userEditedCode = useRef(false);
 
   const fetchViz = useCallback(() => {
     setLoading(true);
     setError(null);
+    userEditedCode.current = false;
     api
       .get<Visualization>(`/visualizations/${id}`)
       .then((v) => {
@@ -354,11 +357,11 @@ export default function VisualizationDetailPage() {
   }, [fetchViz]);
 
   // Live preview for JSON-based backends (plotly, altair/vega-lite)
+  // Only update preview when the user actively edits code, not on initial load
   useEffect(() => {
-    if (!viz) return;
+    if (!viz || !userEditedCode.current) return;
     const backend = viz.backend.toLowerCase();
     if (backend === "plotly" || backend === "altair") {
-      // For JSON-based backends, the code IS the spec
       try {
         JSON.parse(code);
         setPreviewOutput(code);
@@ -434,6 +437,7 @@ export default function VisualizationDetailPage() {
   };
 
   const handleCodeChange = (value: string | undefined) => {
+    userEditedCode.current = true;
     setCode(value || "");
     setHasChanges(true);
   };
