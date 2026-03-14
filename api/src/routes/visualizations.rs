@@ -34,6 +34,21 @@ pub struct Visualization {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+/// Lightweight struct for list endpoints — excludes heavy rendered_output and code blobs.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct VisualizationSummary {
+    pub id: Uuid,
+    pub project_id: Option<Uuid>,
+    pub name: String,
+    pub description: Option<String>,
+    pub backend: String,
+    pub output_type: String,
+    pub refresh_interval: Option<i32>,
+    pub published: bool,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Deserialize)]
 pub struct CreateVisualization {
     pub project_id: Option<Uuid>,
@@ -62,12 +77,11 @@ pub async fn list_all(
     State(state): State<AppState>,
     AuthUser(_claims): AuthUser,
     Query(params): Query<ListParams>,
-) -> AppResult<Json<Vec<Visualization>>> {
-    let rows: Vec<Visualization> = if let Some(pid) = params.project_id {
+) -> AppResult<Json<Vec<VisualizationSummary>>> {
+    let rows: Vec<VisualizationSummary> = if let Some(pid) = params.project_id {
         sqlx::query_as(
-            "SELECT id, project_id, name, description, backend, output_type, code,
-                    config, rendered_output, refresh_interval, published,
-                    created_at, updated_at
+            "SELECT id, project_id, name, description, backend, output_type,
+                    refresh_interval, published, created_at, updated_at
              FROM visualizations WHERE project_id = $1
              ORDER BY updated_at DESC"
         )
@@ -76,9 +90,8 @@ pub async fn list_all(
         .await?
     } else {
         sqlx::query_as(
-            "SELECT id, project_id, name, description, backend, output_type, code,
-                    config, rendered_output, refresh_interval, published,
-                    created_at, updated_at
+            "SELECT id, project_id, name, description, backend, output_type,
+                    refresh_interval, published, created_at, updated_at
              FROM visualizations
              ORDER BY updated_at DESC"
         )
